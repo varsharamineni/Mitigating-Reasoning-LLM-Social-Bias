@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "langchain-core>=0.3.59",
+    "langchain[openai]>=0.3.25",
     "marimo[recommended]>=0.13.6",
 ]
 [tool.marimo.runtime]
