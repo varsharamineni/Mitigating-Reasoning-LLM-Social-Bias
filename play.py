@@ -77,11 +77,16 @@ def _():
 def _(bbq_df, model, prompt_template):
     from typing import Optional, Literal
     from pydantic import BaseModel, Field
+    from langchain_core.runnables import RunnableConfig
+    from tqdm.auto import tqdm
+
 
     class FinalAnswer(BaseModel):
         """Answer of the question"""
-    
-        answer: Literal["ans0", "ans1", "ans2"] = Field(description="Answer of the question among ['ans0', 'ans1', 'ans2']")
+
+        answer: Literal["ans0", "ans1", "ans2"] = Field(
+            description="Answer of the question among ['ans0', 'ans1', 'ans2']"
+        )
 
 
     # Process a single example
@@ -91,28 +96,53 @@ def _(bbq_df, model, prompt_template):
             question=example["question"],
             ans0=example["ans0"],
             ans1=example["ans1"],
-            ans2=example["ans2"]
+            ans2=example["ans2"],
         )
-    
+
         structured_llm = model.with_structured_output(FinalAnswer)
         response = structured_llm.invoke(formatted_prompt)
         return response.answer
 
-    # Process all rows in the dataframe
-    def answer_examples(df):
+
+    # Process all rows in the dataframe using chunked processing
+    def answer_examples(df, chunk_size=10):
+        structured_llm = model.with_structured_output(FinalAnswer)
         results = []
-        for i in range(len(df)):
-            example = df.iloc[i]
-            try:
-                answer = format_example_prompt(example)
-                results.append(answer)
-            except Exception as e:
-                print(f"Error processing row {i}: {e}")
-                results.append(None)
+    
+        # Process dataframe in chunks with progress bar
+        for i in tqdm(range(0, len(df), chunk_size), desc="Processing examples"):
+            chunk = df.iloc[i:i+chunk_size]
+            chunk_prompts = []
+        
+            # Create prompts for this chunk
+            for _, example in chunk.iterrows():
+                formatted_prompt = prompt_template.format_messages(
+                    context=example["context"],
+                    question=example["question"],
+                    ans0=example["ans0"],
+                    ans1=example["ans1"],
+                    ans2=example["ans2"],
+                )
+                chunk_prompts.append(formatted_prompt)
+        
+            # Process this chunk
+            config = RunnableConfig(max_concurrency=10)  # Adjust concurrency as needed
+            chunk_responses = structured_llm.batch(chunk_prompts, config=config)
+        
+            # Extract answers from responses
+            for response in chunk_responses:
+                try:
+                    results.append(response.answer)
+                except Exception as e:
+                    print(f"Error processing response: {e}")
+                    results.append(None)
+    
         return results
+
 
     # Uncomment to process all examples
     all_responses = answer_examples(bbq_df)
+    all_responses
     return (all_responses,)
 
 
