@@ -26,17 +26,21 @@ def _(json):
     with open('filtered_output.jsonl', 'r') as file:
         data = [json.loads(line) for line in file]
         print(data)
-    return (data,)
+
+    bbq_df = pd.DataFrame(data)
+    bbq_df
+
+    return (bbq_df,)
 
 
 @app.cell
-def _(example, pprint):
-    pprint(example)
+def _(bbq_df):
+    type(bbq_df.iloc[0])
     return
 
 
 @app.cell
-def _(data):
+def _(bbq_df):
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
@@ -65,7 +69,7 @@ def _(data):
     """)
 
 
-    example = data[0]
+    example = bbq_df.iloc[0]
     formatted_prompt = prompt_template.format_messages(
         context=example["context"],
         question=example["question"],
@@ -76,7 +80,7 @@ def _(data):
 
     # Display the formatted prompt
     formatted_prompt
-    return example, formatted_prompt
+    return (formatted_prompt,)
 
 
 @app.cell
@@ -99,30 +103,6 @@ def _(formatted_prompt, model):
     return
 
 
-@app.cell(disabled=True, hide_code=True)
-def _():
-    # from typing import Optional
-
-    # from pydantic import BaseModel, Field
-
-
-    # # Pydantic
-    # class Joke(BaseModel):
-    #     """Joke to tell user."""
-
-    #     setup: str = Field(description="The setup of the joke")
-    #     punchline: str = Field(description="The punchline to the joke")
-    #     rating: Optional[int] = Field(
-    #         default=None, description="How funny the joke is, from 1 to 10"
-    #     )
-
-
-    # structured_llm = model.with_structured_output(Joke)
-
-    # structured_llm.invoke("Tell me a joke about cats")
-    return
-
-
 @app.cell
 def _():
     import marimo as mo
@@ -134,7 +114,7 @@ def _():
 def _():
     import rich
     from rich.pretty import pprint
-    return (pprint,)
+    return
 
 
 if __name__ == "__main__":
