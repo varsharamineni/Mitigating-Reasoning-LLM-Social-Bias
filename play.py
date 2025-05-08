@@ -40,7 +40,7 @@ def _(bbq_df):
 
 
 @app.cell
-def _(bbq_df):
+def _():
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
@@ -69,22 +69,12 @@ def _(bbq_df):
     """)
 
 
-    example = bbq_df.iloc[0]
-    formatted_prompt = prompt_template.format_messages(
-        context=example["context"],
-        question=example["question"],
-        ans0=example["ans0"],
-        ans1=example["ans1"],
-        ans2=example["ans2"]
-    )
 
-    # Display the formatted prompt
-    formatted_prompt
-    return (formatted_prompt,)
+    return (prompt_template,)
 
 
 @app.cell
-def _(formatted_prompt, model):
+def _(bbq_df, model, prompt_template):
     from typing import Optional, Literal
     from pydantic import BaseModel, Field
 
@@ -94,12 +84,47 @@ def _(formatted_prompt, model):
         answer: Literal["ans0", "ans1", "ans2"] = Field(description="Answer of the question among ['ans0', 'ans1', 'ans2']")
 
 
-    structured_llm = model.with_structured_output(FinalAnswer)
-    response = structured_llm.invoke(formatted_prompt)
+    # Process a single example
+    def format_example_prompt(example):
+        formatted_prompt = prompt_template.format_messages(
+            context=example["context"],
+            question=example["question"],
+            ans0=example["ans0"],
+            ans1=example["ans1"],
+            ans2=example["ans2"]
+        )
+    
+        structured_llm = model.with_structured_output(FinalAnswer)
+        response = structured_llm.invoke(formatted_prompt)
+        return response.answer
 
-    # Example usage
-    response.answer
+    # Process all rows in the dataframe
+    def answer_examples(df):
+        results = []
+        for i in range(len(df)):
+            example = df.iloc[i]
+            try:
+                answer = format_example_prompt(example)
+                results.append(answer)
+            except Exception as e:
+                print(f"Error processing row {i}: {e}")
+                results.append(None)
+        return results
 
+    # Uncomment to process all examples
+    all_responses = answer_examples(bbq_df)
+    return (all_responses,)
+
+
+@app.cell
+def _(all_responses, bbq_df):
+    bbq_df['no_COT_answers'] = all_responses
+    return
+
+
+@app.cell
+def _(bbq_df):
+    bbq_df['no_COT_answers']
     return
 
 
