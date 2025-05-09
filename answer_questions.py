@@ -131,6 +131,26 @@ def _(ChatPromptTemplate):
     return format_prompt_with_cot, format_prompt_with_unbiased_cot
 
 
+@app.function
+def save_checkpoint(results, checkpoint_file):
+    """Save current progress to a checkpoint file"""
+    checkpoint_data = {
+        'answers': results,
+        'last_processed_idx': len(results) - 1
+    }
+    with open(checkpoint_file, 'w') as f:
+        json.dump(checkpoint_data, f)
+
+
+@app.function
+def load_checkpoint(checkpoint_file):
+    """Load progress from checkpoint file if it exists"""
+    if os.path.exists(checkpoint_file):
+        with open(checkpoint_file, 'r') as f:
+            return json.load(f)
+    return None
+
+
 @app.cell
 def _():
     from typing import Optional, Literal
@@ -139,21 +159,6 @@ def _():
     from tqdm.auto import tqdm
     from openai import OpenAIError
 
-    def save_checkpoint(results, checkpoint_file):
-        """Save current progress to a checkpoint file"""
-        checkpoint_data = {
-            'answers': results,
-            'last_processed_idx': len(results) - 1
-        }
-        with open(checkpoint_file, 'w') as f:
-            json.dump(checkpoint_data, f)
-
-    def load_checkpoint(checkpoint_file):
-        """Load progress from checkpoint file if it exists"""
-        if os.path.exists(checkpoint_file):
-            with open(checkpoint_file, 'r') as f:
-                return json.load(f)
-        return None
 
     def answer_multiple_choice_with_llm(llm, prompt_formatter, desc, df, max_concurrency=10, checkpoint_file=None):
         """Process multiple-choice questions using an LLM in batches with checkpointing."""
