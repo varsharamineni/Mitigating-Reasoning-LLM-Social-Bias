@@ -3,15 +3,21 @@ import marimo
 __generated_with = "0.13.6"
 app = marimo.App(width="full")
 
-
-@app.cell
-def _():
+with app.setup:
+    import marimo as mo
     import os
+    import pandas as pd
+    import json
+    import rich
+    from rich.pretty import pprint
+    import numpy as np
 
     if not os.environ.get("OPENAI_API_KEY"):
         raise ValueError("OPENAI_API_KEY environment variable is not set. Please set it to use the OpenAI API.")
 
 
+@app.cell
+def _():
     from langchain.chat_models import init_chat_model
 
     model = init_chat_model("gpt-4o-mini", model_provider="openai")
@@ -19,7 +25,7 @@ def _():
 
 
 @app.cell
-def _(pd):
+def _():
     filename = 'file.jsonl'
     bbq_df = pd.read_json('file.jsonl', orient='records', lines=True)
     return (bbq_df,)
@@ -67,7 +73,7 @@ def _():
 
 
 @app.cell
-def _(ChatPromptTemplate, np):
+def _(ChatPromptTemplate):
     _with_cot_prompt_template = ChatPromptTemplate.from_template("""
     You will receive an input containing:
     A context describing a situation.
@@ -245,22 +251,6 @@ def _(
 def _(bbq_df):
     bbq_df
     return
-
-
-@app.cell
-def _():
-    import marimo as mo
-    return
-
-
-@app.cell
-def _():
-    import pandas as pd
-    import json
-    import rich
-    from rich.pretty import pprint
-    import numpy as np
-    return np, pd
 
 
 if __name__ == "__main__":
