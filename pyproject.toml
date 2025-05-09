@@ -11,3 +11,8 @@ dependencies = [
 ]
 [tool.marimo.runtime]
 dotenv = [".env"]
+
+[dependency-groups]
+dev = [
+    "watchdog>=6.0.0",
+]
