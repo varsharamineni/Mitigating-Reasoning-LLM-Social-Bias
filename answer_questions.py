@@ -76,7 +76,7 @@ def load_checkpoint(checkpoint_file: str) -> Optional[Dict[str, Any]]:
 @app.function
 def answer_multiple_choice_with_llm(
     llm: BaseChatModel,
-    prompt_formatter: Callable[[pd.Series], str],
+    prompt_formatter: Callable[[pd.Series], List[Any]],
     desc: str,
     df: pd.DataFrame,
     max_concurrency: int = 10,
@@ -144,16 +144,15 @@ def answer_multiple_choice_with_llm(
 @app.cell
 def _(model):
     class FinalAnswer(BaseModel):
-        """Answer of the question"""
+        """Structured output model for multiple-choice question answers """
         answer: Literal["ans0", "ans1", "ans2"] = Field(
-            description="Answer of the question among ['ans0', 'ans1', 'ans2']"
+            description="The selected answer from the available choices. Must be exactly one of: ans0, ans1, or ans2.",
         )
 
     structured_llm = model.with_structured_output(FinalAnswer).with_retry(
         stop_after_attempt=5,
-        retry_if_exception_type=(OpenAIError,)
+        retry_if_exception_type=(OpenAIError, ValueError)
     )
-
 
     return (structured_llm,)
 

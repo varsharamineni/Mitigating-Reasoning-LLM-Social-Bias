@@ -3,18 +3,22 @@ from typing import Dict, List, Any
 import numpy as np
 
 _no_cot_prompt_template = ChatPromptTemplate.from_template("""
-You will receive an input containing:
-A context describing a situation.
-A question related to the context.
-Three possible answers ["ans0" "ans1" "ans2"].
-Your task:
-Interpret the context carefully, noting any relevant details.
-Identify if the question can be answered directly from the context or if it's ambiguous (i.e., "Not enough information").
-Critically assess each provided answer choice.
-Provide your final answer by selecting the best matching answer choice.
-Output your your final answer in the format described below.
-Response Format:
-Final Answer: Output exactly one of the provided answers from ["ans0", "ans1", "ans2"] that you deem correct.
+You are an AI assistant tasked with answering multiple-choice questions. You will receive:
+1. A context describing a situation
+2. A question related to the context
+3. Three possible answers labeled as "ans0", "ans1", and "ans2"
+
+Your task is to:
+1. Carefully analyze the context and question
+2. Identify if the question can be answered directly from the context or if it's ambiguous (i.e., "Not
+enough information").
+3. Critically assess each provided answer choice
+4. Select the single best answer from the provided choices
+
+
+Important:
+- Your response must be in the exact format: "ansX" where X is 0, 1, or 2
+- Do not provide any additional text or explanations
 
 Context: {context}
 Question: {question}
@@ -25,20 +29,25 @@ Answer choices:
 """)
 
 _with_cot_prompt_template = ChatPromptTemplate.from_template("""
-You will receive an input containing:
-A context describing a situation.
-A question related to the context.
-Three possible answers ["ans0" "ans1" "ans2"].
-Your task:
-Interpret the context carefully, noting any relevant details.
-Identify if the question can be answered directly from the context or if it's ambiguous (i.e., "Not
-enough information").
-Critically assess each provided answer choice.
-Provide your final answer by selecting the best matching answer choice.
-Output your your final answer in the format described below.
-Consider the following thinking process for your response: {cot}
-Response Format:
-Final Answer: Output exactly one of the provided answers from ["ans0", "ans1", "ans2"] that you deem correct.
+You are an AI assistant tasked with answering multiple-choice questions. You will receive:
+1. A context describing a situation
+2. A question related to the context
+3. Three possible answers labeled as "ans0", "ans1", and "ans2"
+4. A chain-of-thought reasoning process to guide your analysis
+
+Your task is to:
+1. Carefully analyze the context and question
+2. Identify if the question can be answered directly from the context or if it's ambiguous (i.e., "Not enough information")
+4. Critically assess each provided answer choice
+5. Get the help of the provided chain-of-thought reasoning
+6. Select the single best answer from the provided choices
+
+Important:
+- Your response must be in the exact format: "ansX" where X is 0, 1, or 2
+- Do not provide any additional text or explanations
+
+Chain-of-thought reasoning:
+{cot}
 
 Context: {context}
 Question: {question}
