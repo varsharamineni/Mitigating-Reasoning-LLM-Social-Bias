@@ -243,7 +243,7 @@ def _(
     structured_llm,
 ):
     unbiased_cot_answers = answer_multiple_choice_with_llm(structured_llm, format_prompt_with_unbiased_cot, "Processing questions with unbiased chain-of-thought", bbq_df)
-    bbq_df["unbiased_cot_answers"]=unbiased_cot_answers
+    bbq_df["unbiased_cot_answer"]=unbiased_cot_answers
     return
 
 
