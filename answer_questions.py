@@ -12,6 +12,12 @@ with app.setup:
     from rich.pretty import pprint
     import numpy as np
     from prompts import format_prompt_no_cot, format_prompt_with_cot, format_prompt_with_unbiased_cot
+    from typing import Optional, Literal, List, Dict, Any, Callable, Union
+    from langchain.chat_models.base import BaseChatModel
+    from langchain_core.runnables import RunnableConfig
+    from pydantic import BaseModel, Field
+    from tqdm.auto import tqdm
+    from openai import OpenAIError
 
     # Create checkpoints directory if it doesn't exist
     os.makedirs("checkpoints", exist_ok=True)
@@ -36,8 +42,13 @@ def _():
 
 
 @app.function
-def save_checkpoint(results, checkpoint_file):
-    """Save current progress to a checkpoint file"""
+def save_checkpoint(results: List[str], checkpoint_file: str) -> None:
+    """Save current progress to a checkpoint file
+
+    Args:
+        results: List of answer strings
+        checkpoint_file: Path to the checkpoint file
+    """
     checkpoint_data = {
         'answers': results,
         'last_processed_idx': len(results) - 1
@@ -47,81 +58,91 @@ def save_checkpoint(results, checkpoint_file):
 
 
 @app.function
-def load_checkpoint(checkpoint_file):
-    """Load progress from checkpoint file if it exists"""
+def load_checkpoint(checkpoint_file: str) -> Optional[Dict[str, Any]]:
+    """Load progress from checkpoint file if it exists
+
+    Args:
+        checkpoint_file: Path to the checkpoint file
+
+    Returns:
+        Optional dictionary containing checkpoint data or None if file doesn't exist
+    """
     if os.path.exists(checkpoint_file):
         with open(checkpoint_file, 'r') as f:
             return json.load(f)
     return None
 
 
-@app.cell
-def _():
-    from typing import Optional, Literal
-    from pydantic import BaseModel, Field
-    from langchain_core.runnables import RunnableConfig
-    from tqdm.auto import tqdm
-    from openai import OpenAIError
+@app.function
+def answer_multiple_choice_with_llm(
+    llm: BaseChatModel,
+    prompt_formatter: Callable[[pd.Series], str],
+    desc: str,
+    df: pd.DataFrame,
+    max_concurrency: int = 10,
+    checkpoint_file: Optional[str] = None
+) -> List[str]:
+    """Process multiple-choice questions using an LLM in batches with checkpointing.
 
+    Args:
+        llm: Language model instance
+        prompt_formatter: Function to format prompts from question data
+        desc: Description for progress bar
+        df: DataFrame containing questions
+        max_concurrency: Maximum number of concurrent requests
+        checkpoint_file: Optional path to checkpoint file
 
-    def answer_multiple_choice_with_llm(llm, prompt_formatter, desc, df, max_concurrency=10, checkpoint_file=None):
-        """Process multiple-choice questions using an LLM in batches with checkpointing."""
-        # Try to load checkpoint if available
-        if checkpoint_file:
-            checkpoint_data = load_checkpoint(checkpoint_file)
-            if checkpoint_data is not None:
-                results = checkpoint_data['answers']
-                last_processed_idx = checkpoint_data['last_processed_idx']
-                rich.print(f"[yellow]Continuing from checkpoint:[/yellow] Processed {last_processed_idx + 1} questions")
-                rich.print(f"[yellow]Remaining questions:[/yellow] {len(df) - (last_processed_idx + 1)}")
-                # Start from the next unanswered question
-                df = df.iloc[last_processed_idx + 1:]
-            else:
-                results = []
-                rich.print("[green]No checkpoint found. Starting from beginning.[/green]")
+    Returns:
+        List of answer strings
+    """
+    # Try to load checkpoint if available
+    if checkpoint_file:
+        checkpoint_data = load_checkpoint(checkpoint_file)
+        if checkpoint_data is not None:
+            results = checkpoint_data['answers']
+            last_processed_idx = checkpoint_data['last_processed_idx']
+            rich.print(f"[yellow]Continuing from checkpoint:[/yellow] Processed {last_processed_idx + 1} questions")
+            rich.print(f"[yellow]Remaining questions:[/yellow] {len(df) - (last_processed_idx + 1)}")
+            # Start from the next unanswered question
+            df = df.iloc[last_processed_idx + 1:]
         else:
             results = []
-            rich.print("[green]No checkpoint file specified. Starting from beginning.[/green]")
+            rich.print("[green]No checkpoint found. Starting from beginning.[/green]")
+    else:
+        results = []
+        rich.print("[green]No checkpoint file specified. Starting from beginning.[/green]")
 
-        try:
-            # Process dataframe in chunks with progress bar
-            for i in tqdm(range(0, len(df), max_concurrency), desc=desc):
-                chunk = df.iloc[i:i+max_concurrency]
+    try:
+        # Process dataframe in chunks with progress bar
+        for i in tqdm(range(0, len(df), max_concurrency), desc=desc):
+            chunk = df.iloc[i:i+max_concurrency]
 
-                # Create prompts for this chunk
-                chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
+            # Create prompts for this chunk
+            chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
 
-                # Process this chunk
-                config = RunnableConfig(max_concurrency=10)
-                chunk_responses = llm.batch(chunk_prompts, config=config)
+            # Process this chunk
+            config = RunnableConfig(max_concurrency=10)
+            chunk_responses = llm.batch(chunk_prompts, config=config)
 
-                # Extract answers from responses
-                chunk_answers = [response.answer for response in chunk_responses]
-                results.extend(chunk_answers)
+            # Extract answers from responses
+            chunk_answers = [response.answer for response in chunk_responses]
+            results.extend(chunk_answers)
 
-                # Save checkpoint after each chunk
-                if checkpoint_file:
-                    save_checkpoint(results, checkpoint_file)
-
-        except Exception as e:
-            rich.print(f"[red]Error occurred:[/red] {str(e)}")
+            # Save checkpoint after each chunk
             if checkpoint_file:
-                rich.print(f"[yellow]Progress saved to checkpoint file:[/yellow] {checkpoint_file}")
-            raise e
+                save_checkpoint(results, checkpoint_file)
 
-        return results
+    except Exception as e:
+        rich.print(f"[red]Error occurred:[/red] {str(e)}")
+        if checkpoint_file:
+            rich.print(f"[yellow]Progress saved to checkpoint file:[/yellow] {checkpoint_file}")
+        raise e
 
-    return (
-        BaseModel,
-        Field,
-        Literal,
-        OpenAIError,
-        answer_multiple_choice_with_llm,
-    )
+    return results
 
 
 @app.cell
-def _(BaseModel, Field, Literal, OpenAIError, model):
+def _(model):
     class FinalAnswer(BaseModel):
         """Answer of the question"""
         answer: Literal["ans0", "ans1", "ans2"] = Field(
@@ -138,7 +159,7 @@ def _(BaseModel, Field, Literal, OpenAIError, model):
 
 
 @app.cell
-def _(answer_multiple_choice_with_llm, bbq_df, structured_llm):
+def _(bbq_df, structured_llm):
     _no_cot_checkpoint_file = os.path.join("checkpoints", "no_cot_checkpoint.json")
     _no_cot_answers = answer_multiple_choice_with_llm(
         structured_llm, 
@@ -152,7 +173,7 @@ def _(answer_multiple_choice_with_llm, bbq_df, structured_llm):
 
 
 @app.cell
-def _(answer_multiple_choice_with_llm, bbq_df, structured_llm):
+def _(bbq_df, structured_llm):
     _with_cot_checkpoint_file = os.path.join("checkpoints", "with_cot_checkpoint.json")
     _with_cot_answers = answer_multiple_choice_with_llm(
         structured_llm, 
@@ -166,7 +187,7 @@ def _(answer_multiple_choice_with_llm, bbq_df, structured_llm):
 
 
 @app.cell
-def _(answer_multiple_choice_with_llm, bbq_df, structured_llm):
+def _(bbq_df, structured_llm):
     _unbiased_cot_checkpoint_file = os.path.join("checkpoints", "unbiased_cot_checkpoint.json")
     _unbiased_cot_answers = answer_multiple_choice_with_llm(
         structured_llm,
