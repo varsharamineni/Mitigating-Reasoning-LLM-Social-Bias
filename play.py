@@ -193,7 +193,6 @@ def _():
                 # Save checkpoint after each chunk
                 if checkpoint_file:
                     save_checkpoint(results, checkpoint_file)
-                    rich.print(f"[blue]Checkpoint saved:[/blue] Processed {len(results)} questions")
 
         except Exception as e:
             rich.print(f"[red]Error occurred:[/red] {str(e)}")
@@ -240,7 +239,7 @@ def _(
     _no_cot_answers = answer_multiple_choice_with_llm(
         structured_llm, 
         format_prompt_no_cot, 
-        "Processing questions without chain-of-thought", 
+        "Answering questions without chain-of-thought", 
         bbq_df,
         checkpoint_file=_no_cot_checkpoint_file
     )
@@ -259,7 +258,7 @@ def _(
     _with_cot_answers = answer_multiple_choice_with_llm(
         structured_llm, 
         format_prompt_with_cot, 
-        "Processing questions with chain-of-thought", 
+        "Answering questions with chain-of-thought", 
         bbq_df,
         checkpoint_file=_with_cot_checkpoint_file
     )
@@ -278,7 +277,7 @@ def _(
     _unbiased_cot_answers = answer_multiple_choice_with_llm(
         structured_llm,
         format_prompt_with_unbiased_cot,
-        "Processing questions with unbiased chain-of-thought",
+        "Answering questions with unbiased chain-of-thought",
         bbq_df,
         checkpoint_file=_unbiased_cot_checkpoint_file,
     )
