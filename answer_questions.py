@@ -201,6 +201,27 @@ def _(bbq_df, structured_llm):
 
 @app.cell
 def _(bbq_df):
+    # Calculate accuracy for each method by extracting numeric answer and comparing to label
+    no_cot_answers = bbq_df["no_cot_answer"].str.extract(r'(\d+)')[0].astype(int)
+    cot_answers = bbq_df["cot_answer"].str.extract(r'(\d+)')[0].astype(int)
+    unbiased_cot_answers = bbq_df["unbiased_cot_answer"].str.extract(r'(\d+)')[0].astype(int)
+    labels = bbq_df["label"]
+
+    # Calculate accuracies using numpy for comparison
+    no_cot_accuracy = np.mean(no_cot_answers.values == labels.values)
+    cot_accuracy = np.mean(cot_answers.values == labels.values)
+    unbiased_cot_accuracy = np.mean(unbiased_cot_answers.values == labels.values)
+
+    # Print results
+    rich.print("\n[bold]Accuracy Results:[/bold]")
+    rich.print(f"No Chain-of-Thought Accuracy: {no_cot_accuracy:.2%}")
+    rich.print(f"Chain-of-Thought Accuracy: {cot_accuracy:.2%}")
+    rich.print(f"Unbiased Chain-of-Thought Accuracy: {unbiased_cot_accuracy:.2%}")
+    return
+
+
+@app.cell
+def _(bbq_df):
     bbq_df
     return
 
