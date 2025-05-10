@@ -36,13 +36,6 @@ def _():
     return (model,)
 
 
-@app.cell
-def _():
-    filename = 'file.jsonl'
-    bbq_df = pd.read_json('file.jsonl', orient='records', lines=True)
-    return (bbq_df,)
-
-
 @app.function
 def save_checkpoint(results: List[str], checkpoint_file: str) -> None:
     """Save current progress to a checkpoint file
@@ -122,7 +115,7 @@ def answer_multiple_choice_with_llm(
             # Create prompts for this chunk
             chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
 
-            # Process this chunk
+            # Process this chunk with retry handling built into the LLM
             config = RunnableConfig(max_concurrency=10)
             chunk_responses = llm.batch(chunk_prompts, config=config)
 
@@ -152,7 +145,9 @@ def _(model):
         )
 
     structured_llm = model.with_structured_output(FinalAnswer).with_retry(
-        stop_after_attempt=5,
+        stop_after_attempt=3,
+        wait_exponential_jitter=True,
+        exponential_jitter_params={"initial": 9},
         retry_if_exception_type=(OpenAIError, ValueError)
     )
 
@@ -160,8 +155,56 @@ def _(model):
 
 
 @app.cell
-def _(bbq_df, structured_llm):
-    _no_cot_checkpoint_file = os.path.join("checkpoints", "no_cot_checkpoint.json")
+def _():
+    # dataset_path = os.path.join("database", "Age.jsonl")
+    dataset_path = "reasoning_steps.jsonl"
+    checkpoint_name = dataset_path.replace(os.path.sep, "_")
+
+    bbq_df = pd.read_json(dataset_path, orient='records', lines=True)
+    return bbq_df, checkpoint_name
+
+
+@app.cell
+def _(bbq_df):
+    bbq_df
+    return
+
+
+@app.cell
+def _():
+    # # Generate reasoning steps with lorem ipsum text and append answer
+    # import random
+    # from lorem_text import lorem
+
+    # # Function to generate lorem ipsum text of random length
+    # def generate_lorem_text():
+    #     return lorem.words(random.randint(10, 30))
+
+    # # Generate reasoning steps for each row
+    # reasoning_steps_list = []
+    # for i in range(len(bbq_df)):
+    #     # Generate 3 to 6 steps
+    #     num_steps = random.randint(3, 6)
+    #     steps = [generate_lorem_text() for _ in range(num_steps-1)]
+    #     # Append the answer to the last step
+    #     steps[-1] = steps[-1] + (" so answer is 'ans0'")
+    #     reasoning_steps_list.append(steps)
+
+    # # Update the dataframe
+    # bbq_df['reasoning_steps'] = reasoning_steps_list
+
+    # # Display the first few rows to verify
+    # bbq_df[['reasoning_steps', 'ans0']].head()
+    return
+
+
+@app.cell
+def _(bbq_df, checkpoint_name, structured_llm):
+    # Convert path separators to underscores
+    _no_cot_checkpoint_file = os.path.join(
+        "checkpoints", 
+        f"{checkpoint_name}_no_cot_checkpoint.json"
+    )
     _no_cot_answers = answer_multiple_choice_with_llm(
         structured_llm, 
         format_prompt_no_cot, 
@@ -174,8 +217,12 @@ def _(bbq_df, structured_llm):
 
 
 @app.cell
-def _(bbq_df, structured_llm):
-    _with_cot_checkpoint_file = os.path.join("checkpoints", "with_cot_checkpoint.json")
+def _(bbq_df, checkpoint_name, structured_llm):
+    # Convert path separators to underscores
+    _with_cot_checkpoint_file = os.path.join(
+        "checkpoints", 
+        f"{checkpoint_name}_with_cot_checkpoint.json"
+    )
     _with_cot_answers = answer_multiple_choice_with_llm(
         structured_llm, 
         format_prompt_with_cot, 
@@ -187,9 +234,13 @@ def _(bbq_df, structured_llm):
     return
 
 
-@app.cell
-def _(bbq_df, structured_llm):
-    _unbiased_cot_checkpoint_file = os.path.join("checkpoints", "unbiased_cot_checkpoint.json")
+@app.cell(disabled=True)
+def _(bbq_df, checkpoint_name, structured_llm):
+    # Convert path separators to underscores
+    _unbiased_cot_checkpoint_file = os.path.join(
+        "checkpoints", 
+        f"{checkpoint_name}_unbiased_cot_checkpoint.json"
+    )
     _unbiased_cot_answers = answer_multiple_choice_with_llm(
         structured_llm,
         format_prompt_with_unbiased_cot,
@@ -203,22 +254,16 @@ def _(bbq_df, structured_llm):
 
 @app.cell
 def _(bbq_df):
-    # Calculate accuracy for each method by extracting numeric answer and comparing to label
-    no_cot_answers = bbq_df["no_cot_answer"].str.extract(r'(\d+)')[0].astype(int)
-    cot_answers = bbq_df["cot_answer"].str.extract(r'(\d+)')[0].astype(int)
-    unbiased_cot_answers = bbq_df["unbiased_cot_answer"].str.extract(r'(\d+)')[0].astype(int)
-    labels = bbq_df["label"]
-
-    # Calculate accuracies using numpy for comparison
-    no_cot_accuracy = np.mean(no_cot_answers.values == labels.values)
-    cot_accuracy = np.mean(cot_answers.values == labels.values)
-    unbiased_cot_accuracy = np.mean(unbiased_cot_answers.values == labels.values)
+    # Calculate accuracy for each method
+    no_cot_accuracy = np.mean(bbq_df["no_cot_answer"].apply(lambda x: int(x[-1])) == bbq_df["label"])
+    cot_accuracy = np.mean(bbq_df["cot_answer"].apply(lambda x: int(x[-1])) == bbq_df["label"])
+    # unbiased_cot_accuracy = np.mean(bbq_df["unbiased_cot_answer"].apply(lambda x: int(x[-1])) == bbq_df["label"])
 
     # Print results
     rich.print("\n[bold]Accuracy Results:[/bold]")
     rich.print(f"No Chain-of-Thought Accuracy: {no_cot_accuracy:.2%}")
     rich.print(f"Chain-of-Thought Accuracy: {cot_accuracy:.2%}")
-    rich.print(f"Unbiased Chain-of-Thought Accuracy: {unbiased_cot_accuracy:.2%}")
+    # rich.print(f"Unbiased Chain-of-Thought Accuracy: {unbiased_cot_accuracy:.2%}")
     return
 
 
