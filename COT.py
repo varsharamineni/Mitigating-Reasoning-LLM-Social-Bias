@@ -40,12 +40,12 @@ def _():
 @app.cell
 def _():
     # Read the JSONL file
-    with open('filtered_output.jsonl', 'r') as file:
+    with open('Disability_status.jsonl.jsonl', 'r') as file:
         data = [json.loads(line) for line in file]
         print(data)
 
     bbq_df = pd.DataFrame(data)
-    bbq_df
+    print(len(bbq_df))
     return (bbq_df,)
 
 
@@ -119,7 +119,7 @@ def answer_multiple_choice_with_llm(
 
 @app.cell
 def _(bbq_df, model):
-    _cot_checkpoint_file = os.path.join("checkpoints", "cot_checkpoint.json")
+    _cot_checkpoint_file = os.path.join("checkpoints", "cot_disability_status_checkpoint.json")
     cot = answer_multiple_choice_with_llm(
         model, 
         format_prompt_cot, 
@@ -128,12 +128,11 @@ def _(bbq_df, model):
         max_concurrency=10,
         checkpoint_file=_cot_checkpoint_file
     )
-    bbq_df["cot"] = cot
-    return
+    return (cot,)
 
 
 @app.cell
-def _(bbq_df):
+def _(bbq_df, cot, output_file):
     def parse_reasoning_steps(text: str) -> List[str]:
         """
         Parse the reasoning steps from the response text.
@@ -148,13 +147,13 @@ def _(bbq_df):
         steps = [step.strip() for step in text.split('\n') if step.strip()]
         return steps
 
-    # Process the cot column from bbq_df
-    bbq_df['reasoning_steps'] = bbq_df['cot'].apply(parse_reasoning_steps)
+    # Process the cot results directly
+    bbq_df['cot'] = [parse_reasoning_steps(text) for text in cot]
 
     # Save the DataFrame to JSONL file
-    output_file = 'reasoning_steps.jsonl'
+    _cot_file = os.path.join("COT", "cot_disability_status.json")
     bbq_df.to_json(output_file, orient='records', lines=True)
-    print(f"Saved reasoning steps to {output_file}")
+    print(f"Saved cot steps to {output_file}")
     return
 
 
