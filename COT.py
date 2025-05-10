@@ -23,6 +23,9 @@ with app.setup:
     # Create checkpoints directory if it doesn't exist
     os.makedirs("checkpoints", exist_ok=True)
 
+    # Dataset configuration
+    DATASET_NAME = "physical_appearance"
+
 
 @app.cell
 def _():
@@ -40,7 +43,7 @@ def _():
 @app.cell
 def _():
     # Read the JSONL file
-    with open('dataset/BBQ/Physical_appearance.jsonl', 'r') as file:
+    with open(os.path.join('dataset', 'BBQ', f'{DATASET_NAME}.jsonl'), 'r') as file:
         data = [json.loads(line) for line in file]
         print(data)
 
@@ -119,7 +122,7 @@ def answer_multiple_choice_with_llm(
 
 @app.cell
 def _(bbq_df, model):
-    _cot_checkpoint_file = os.path.join("checkpoints", "cot_physical_appearance_checkpoint.json")
+    _cot_checkpoint_file = os.path.join("checkpoints", f"cot_{DATASET_NAME}_checkpoint.json")
     cot = answer_multiple_choice_with_llm(
         model, 
         format_prompt_cot, 
@@ -151,7 +154,7 @@ def _(bbq_df, cot):
     bbq_df['cot'] = [parse_reasoning_steps(text) for text in cot]
 
     # Save the DataFrame to JSONL file
-    _cot_file = os.path.join("COT", "cot_physical_appearance.json")
+    _cot_file = os.path.join("COT", f"cot_{DATASET_NAME}.json")
     bbq_df.to_json(_cot_file, orient='records', lines=True)
     print(f"Saved cot steps to {_cot_file}")
     return
