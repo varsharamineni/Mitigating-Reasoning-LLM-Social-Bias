@@ -29,8 +29,10 @@ with app.setup:
 @app.cell
 def _():
     from langchain.chat_models import init_chat_model
+    # from langchain_ollama import ChatOllama
 
-    model = init_chat_model("gpt-4o-mini", model_provider="openai")
+    model = init_chat_model("gpt-4o-mini-2024-07-18", model_provider="openai", temperature=0)
+    # model = ChatOllama(model="deepseek-r1:1.5b", temperature=0)
     return (model,)
 
 
