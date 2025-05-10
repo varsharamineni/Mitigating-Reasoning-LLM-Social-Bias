@@ -8,6 +8,7 @@ dependencies = [
     "langchain-core>=0.3.59",
     "langchain[openai]>=0.3.25",
     "marimo[recommended]>=0.13.6",
+    "pandas>=2.2.3",
 ]
 [tool.marimo.runtime]
 dotenv = [".env"]
