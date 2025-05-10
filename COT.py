@@ -40,7 +40,7 @@ def _():
 @app.cell
 def _():
     # Read the JSONL file
-    with open('Disability_status.jsonl.jsonl', 'r') as file:
+    with open('dataset/BBQ/Physical_appearance.jsonl', 'r') as file:
         data = [json.loads(line) for line in file]
         print(data)
 
@@ -119,7 +119,7 @@ def answer_multiple_choice_with_llm(
 
 @app.cell
 def _(bbq_df, model):
-    _cot_checkpoint_file = os.path.join("checkpoints", "cot_disability_status_checkpoint.json")
+    _cot_checkpoint_file = os.path.join("checkpoints", "cot_physical_appearance_checkpoint.json")
     cot = answer_multiple_choice_with_llm(
         model, 
         format_prompt_cot, 
@@ -132,7 +132,7 @@ def _(bbq_df, model):
 
 
 @app.cell
-def _(bbq_df, cot, output_file):
+def _(bbq_df, cot):
     def parse_reasoning_steps(text: str) -> List[str]:
         """
         Parse the reasoning steps from the response text.
@@ -151,9 +151,9 @@ def _(bbq_df, cot, output_file):
     bbq_df['cot'] = [parse_reasoning_steps(text) for text in cot]
 
     # Save the DataFrame to JSONL file
-    _cot_file = os.path.join("COT", "cot_disability_status.json")
-    bbq_df.to_json(output_file, orient='records', lines=True)
-    print(f"Saved cot steps to {output_file}")
+    _cot_file = os.path.join("COT", "cot_physical_appearance.json")
+    bbq_df.to_json(_cot_file, orient='records', lines=True)
+    print(f"Saved cot steps to {_cot_file}")
     return
 
 
