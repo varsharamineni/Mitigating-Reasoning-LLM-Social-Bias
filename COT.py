@@ -16,13 +16,9 @@ with app.setup:
     from typing import Optional, Literal, List, Dict, Any, Callable, Union
     from langchain.chat_models.base import BaseChatModel
     from langchain_core.runnables import RunnableConfig
-    from pydantic import BaseModel, Field
     from tqdm.auto import tqdm
-    from openai import OpenAIError
-    from openai import OpenAI
     from langchain_deepseek import ChatDeepSeek
     from answer_questions import save_checkpoint, load_checkpoint
-    from langchain.chat_models import ChatOpenAI
 
     # Create checkpoints directory if it doesn't exist
     os.makedirs("checkpoints", exist_ok=True)
@@ -154,6 +150,11 @@ def _(bbq_df):
 
     # Process the cot column from bbq_df
     bbq_df['reasoning_steps'] = bbq_df['cot'].apply(parse_reasoning_steps)
+
+    # Save the DataFrame to JSONL file
+    output_file = 'reasoning_steps.jsonl'
+    bbq_df.to_json(output_file, orient='records', lines=True)
+    print(f"Saved reasoning steps to {output_file}")
     return
 
 
