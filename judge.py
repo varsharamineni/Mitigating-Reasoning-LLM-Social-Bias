@@ -17,7 +17,7 @@ with app.setup:
     from pydantic import BaseModel, Field
     from tqdm.auto import tqdm
     from openai import OpenAIError
-    from langchain_community.chat_models import ChatOpenAI
+    from langchain_openai import ChatOpenAI
     from langchain.prompts import PromptTemplate
     from os import getenv
     from langchain.chains import LLMChain
@@ -42,10 +42,10 @@ def _():
     #     model_name = "qwen/qwen3-1.7b:free",
     # )
 
-    model = ChatDeepSeek(
-        openai_api_key=os.environ["DEEPSEEK_API_KEY"],
-        openai_api_base="https://api.deepseek.com",
-        model_name="deepseek-chat",
+    model = ChatOpenAI(
+        openai_api_key=os.environ["judge_key"],
+        openai_api_base="https://openrouter.ai/api/v1",
+        model_name="meta-llama/llama-3-8b-instruct",
     )
     return (model,)
 
@@ -107,21 +107,19 @@ def answer_multiple_choice_with_llm(
              chunk = df.iloc[i:i+max_concurrency]
              # Create prompts for this chunk
              chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
-             print(chunk_prompts)
+             save_checkpoint = chunk_prompts
              # Process this chunk
 
              config = RunnableConfig(max_concurrency=max_concurrency)
              chunk_responses = llm.batch(chunk_prompts, config=config)
-             # chunk_responses = llm.invoke("Hello, world!")
-             print(chunk_responses)
-             # break
+             
              # Extract reasoning from responses
-             # chunk_answers = [response for response in chunk_responses]
-             # results.extend(chunk_answers)
+             chunk_answers = [response.content for response in chunk_responses]
+             results.extend(chunk_answers)
 
              # Save checkpoint after each chunk
              # if checkpoint_file:
-             #     save_checkpoint(results, checkpoint_file)
+                 # save_checkpoint(results, checkpoint_file)
 
     except Exception as e:
         rich.print(f"[red]Error occurred:[/red] {str(e)}")
@@ -143,13 +141,19 @@ def _(bbq_df, model):
         max_concurrency=10,
         checkpoint_file=_judge_checkpoint_file
     )
-    # bbq_df["judge"] = j
-    j
+
+    return (j,)
+
+
+@app.cell
+def _(bbq_df, j):
+    bbq_df["judge"] = j
     return
 
 
 @app.cell
-def _():
+def _(bbq_df):
+    bbq_df.head()
     return
 
 
