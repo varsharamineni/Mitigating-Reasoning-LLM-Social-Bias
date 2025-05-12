@@ -30,8 +30,33 @@ with app.setup:
 def _():
     from langchain.chat_models import init_chat_model
     # from langchain_ollama import ChatOllama
+    from langchain_openai import ChatOpenAI
 
-    model = init_chat_model("gpt-4o-mini-2024-07-18", model_provider="openai", temperature=0)
+
+    model = init_chat_model("deepseek-chat", model_provider="deepseek", temperature=0)
+    # model = ChatOpenAI(
+    #   openai_api_key=os.environ["OPENROUTER_API_KEY"],
+    #   openai_api_base=os.environ["OPENROUTER_BASE_URL"],
+    #   model_name="mistral/ministral-8b",
+    #   temperature=0
+    # )
+
+    # model = ChatOpenAI(
+    #   openai_api_key=os.environ["OPENROUTER_API_KEY"],
+    #   openai_api_base=os.environ["OPENROUTER_BASE_URL"],
+    #   # model_name="deepseek/deepseek-chat",
+    #   model_name="deepseek/deepseek-chat-v3-0324",
+    #   temperature=0
+    # )
+
+
+
+    # model = ChatOpenAI(
+    #   openai_api_key=os.environ["OPENROUTER_API_KEY"],
+    #   openai_api_base=os.environ["OPENROUTER_BASE_URL"],
+    #   model_name="openai/gpt-4.1-nano",
+    #   temperature=0
+    # )
     # model = ChatOllama(model="deepseek-r1:1.5b", temperature=0)
     return (model,)
 
@@ -115,8 +140,8 @@ def answer_multiple_choice_with_llm(
             # Create prompts for this chunk
             chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
 
-            # Process this chunk with retry handling built into the LLM
-            config = RunnableConfig(max_concurrency=10)
+            # Process this chunk
+            config = RunnableConfig(max_concurrency=max_concurrency)
             chunk_responses = llm.batch(chunk_prompts, config=config)
 
             # Extract answers from responses
@@ -156,8 +181,8 @@ def _(model):
 
 @app.cell
 def _():
-    # dataset_path = os.path.join("database", "Age.jsonl")
-    dataset_path = "reasoning_steps.jsonl"
+    dataset_path = os.path.join("database", "cot_physical_appearance.json")
+    # dataset_path = "reasoning_steps.jsonl"
     checkpoint_name = dataset_path.replace(os.path.sep, "_")
 
     bbq_df = pd.read_json(dataset_path, orient='records', lines=True)
@@ -210,6 +235,7 @@ def _(bbq_df, checkpoint_name, structured_llm):
         format_prompt_no_cot, 
         "Answering questions without chain-of-thought", 
         bbq_df,
+        max_concurrency=50,
         checkpoint_file=_no_cot_checkpoint_file
     )
     bbq_df["no_cot_answer"] = _no_cot_answers
@@ -228,6 +254,7 @@ def _(bbq_df, checkpoint_name, structured_llm):
         format_prompt_with_cot, 
         "Answering questions with chain-of-thought", 
         bbq_df,
+        max_concurrency=50,
         checkpoint_file=_with_cot_checkpoint_file
     )
     bbq_df["cot_answer"] = _with_cot_answers
@@ -264,6 +291,12 @@ def _(bbq_df):
     rich.print(f"No Chain-of-Thought Accuracy: {no_cot_accuracy:.2%}")
     rich.print(f"Chain-of-Thought Accuracy: {cot_accuracy:.2%}")
     # rich.print(f"Unbiased Chain-of-Thought Accuracy: {unbiased_cot_accuracy:.2%}")
+    return
+
+
+@app.cell
+def _(bbq_df):
+    bbq_df.to_json("physical-appearance-answers-nocot-cleaned_cot-deepseek-chat-temp0.jsonl", orient='records', lines=True)
     return
 
 
