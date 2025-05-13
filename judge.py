@@ -8,6 +8,7 @@ with app.setup:
     import os
     import pandas as pd
     import json
+    import re
     import rich
     from rich.pretty import pprint
     import numpy as np
@@ -33,15 +34,6 @@ with app.setup:
 
 @app.cell
 def _():
-    # if not os.environ.get("judge_key"):
-    #     raise ValueError("judge_key environment variable is not set. Please set it to use the DeepSeek API.")
-
-    # model = ChatOpenAI(
-    #     api_key = os.environ["Judge_key"],
-    #     base_url = "https://openrouter.ai/api/v1",
-    #     model_name = "qwen/qwen3-1.7b:free",
-    # )
-
     model = ChatOpenAI(
         openai_api_key=os.environ["judge_key"],
         openai_api_base="https://openrouter.ai/api/v1",
@@ -112,14 +104,15 @@ def answer_multiple_choice_with_llm(
 
              config = RunnableConfig(max_concurrency=max_concurrency)
              chunk_responses = llm.batch(chunk_prompts, config=config)
-             
+             # print(chunk_responses)
+             # break
              # Extract reasoning from responses
              chunk_answers = [response.content for response in chunk_responses]
              results.extend(chunk_answers)
 
              # Save checkpoint after each chunk
              # if checkpoint_file:
-                 # save_checkpoint(results, checkpoint_file)
+             #     save_checkpoint(results, checkpoint_file)
 
     except Exception as e:
         rich.print(f"[red]Error occurred:[/red] {str(e)}")
@@ -133,7 +126,7 @@ def answer_multiple_choice_with_llm(
 @app.cell
 def _(bbq_df, model):
     _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
-    j = answer_multiple_choice_with_llm(
+    jud = answer_multiple_choice_with_llm(
         model, 
         format_qwen_judge_prompt, 
         "Generating Judge", 
@@ -141,19 +134,92 @@ def _(bbq_df, model):
         max_concurrency=10,
         checkpoint_file=_judge_checkpoint_file
     )
+    bbq_df["judge"] = jud
+    return (jud,)
 
-    return (j,)
+
+@app.function
+def repair_json_fragment(raw: str) -> Dict[str, Any]:
+    """
+    Repairs a single malformed JSON fragment by:
+      - Stripping markdown fences if present.
+      - Ensuring it ends with a closing brace and quote for 'reasoning'.
+      - Escaping control characters in the 'reasoning' value.
+      - Parsing into a Python dict.
+    """
+    # Strip markdown fences
+    s = re.sub(r'^```json\s*|```$', '', raw.strip(), flags=re.MULTILINE)
+
+    # Ensure closing brace
+    if not s.rstrip().endswith('}'):
+        s += '\n}'
+
+    # Regex to locate the reasoning field content
+    match = re.search(r'("reasoning"\s*:\s*")([\s\S]*?)(?=\n\})', s)
+    if match:
+        prefix, content = match.group(1), match.group(2)
+        # Escape via json.dumps to handle newlines, quotes, backslashes
+        escaped = json.dumps(content)[1:-1]
+        # Reconstruct the reasoning field with a closing quote
+        replacement = f'{prefix}{escaped}"'
+        s = s[:match.start()] + replacement + s[match.end():]
+        
+    # Remove control characters
+    s = re.sub(r'[\x00-\x1f\x7f]', '', s)
+    
+    # Parse and return
+    return json.loads(s)
 
 
 @app.cell
-def _(bbq_df, j):
-    bbq_df["judge"] = j
+def _(bbq_df, jud):
+    count = 0
+    jud_col = []
+    for j in jud:
+        try:
+            j_data = repair_json_fragment(j)
+            # j_data = json.loads(j_clean)
+            j_array = j_data['answer']
+            if len(j_array) != len(bbq_df['reasoning_steps'][count]):
+                print("there is inconsistency")
+            jud_col.append(j_data)
+            count += 1
+        except Exception as e:
+            print(e)
+    return (jud_col,)
+
+
+@app.cell
+def _(jud_col):
+    jud_col
     return
 
 
+@app.function
+def add_attribute_to_jsonl(input_path: str, output_path: str,
+                           attr_name: str, attr_list):
+    """
+    Reads a JSONL file from input_path, adds attr_name=attr_value
+    to each JSON object, and writes the results to output_path.
+    """
+    with open(input_path, 'r', encoding='utf-8') as fin, \
+         open(output_path, 'w', encoding='utf-8') as fout:
+
+        count = 0
+        for line in fin:
+            # Parse the JSON object
+            obj = json.loads(line)
+            # Add or overwrite the attribute
+            obj[attr_name] = attr_list[count]
+            # Write it back as a JSON line
+            fout.write(json.dumps(obj, ensure_ascii=False) + '\n')
+
+            count += 1
+
+
 @app.cell
-def _(bbq_df):
-    bbq_df.head()
+def _(jud_col):
+    add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge',jud_col)
     return
 
 
