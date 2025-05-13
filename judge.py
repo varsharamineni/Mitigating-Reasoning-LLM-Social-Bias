@@ -34,12 +34,22 @@ with app.setup:
 
 @app.cell
 def _():
-    model = ChatOpenAI(
+    model_llama = ChatOpenAI(
         openai_api_key=os.environ["judge_key"],
         openai_api_base="https://openrouter.ai/api/v1",
         model_name="meta-llama/llama-3-8b-instruct",
     )
-    return (model,)
+    return
+
+
+@app.cell
+def _():
+    model_mistral = ChatOpenAI(
+        openai_api_key=os.environ["judge_key"],
+        openai_api_base="https://openrouter.ai/api/v1",
+        model_name="mistralai/mistral-7b-instruct",
+    )
+    return (model_mistral,)
 
 
 @app.cell
@@ -124,18 +134,33 @@ def answer_multiple_choice_with_llm(
 
 
 @app.cell
-def _(bbq_df, model):
+def _(bbq_df, model_mistral):
     _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
-    jud = answer_multiple_choice_with_llm(
-        model, 
+    # jud_llama = answer_multiple_choice_with_llm(
+    #     model_llama, 
+    #     format_qwen_judge_prompt, 
+    #     "Generating Judge", 
+    #     bbq_df,
+    #     max_concurrency=10,
+    #     checkpoint_file=_judge_checkpoint_file
+    # )
+    # bbq_df["judge_llama"] = jud_llama
+    jud_mistral = answer_multiple_choice_with_llm(
+        model_mistral, 
         format_qwen_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
         checkpoint_file=_judge_checkpoint_file
     )
-    bbq_df["judge"] = jud
-    return (jud,)
+    bbq_df["judge_mistral"] = jud_mistral
+    return (jud_mistral,)
+
+
+@app.cell
+def _(jud_mistral):
+    jud_mistral
+    return
 
 
 @app.function
@@ -163,36 +188,32 @@ def repair_json_fragment(raw: str) -> Dict[str, Any]:
         # Reconstruct the reasoning field with a closing quote
         replacement = f'{prefix}{escaped}"'
         s = s[:match.start()] + replacement + s[match.end():]
-        
+
     # Remove control characters
     s = re.sub(r'[\x00-\x1f\x7f]', '', s)
-    
+
     # Parse and return
     return json.loads(s)
 
 
 @app.cell
-def _(bbq_df, jud):
-    count = 0
-    jud_col = []
-    for j in jud:
-        try:
-            j_data = repair_json_fragment(j)
-            # j_data = json.loads(j_clean)
-            j_array = j_data['answer']
-            if len(j_array) != len(bbq_df['reasoning_steps'][count]):
-                print("there is inconsistency")
-            jud_col.append(j_data)
-            count += 1
-        except Exception as e:
-            print(e)
-    return (jud_col,)
-
-
-@app.cell
-def _(jud_col):
-    jud_col
-    return
+def _(bbq_df):
+    def check_json_output(input_list):
+        count = 0
+        jud_list = []
+        for j in input_list:
+            try:
+                j_data = repair_json_fragment(j)
+                # j_data = json.loads(j_clean)
+                j_array = j_data['answer']
+                if len(j_array) != len(bbq_df['reasoning_steps'][count]):
+                    print("there is inconsistency")
+                jud_list.append(j_data)
+                count += 1
+            except Exception as e:
+                print(e)
+        return jud_list
+    return (check_json_output,)
 
 
 @app.function
@@ -218,8 +239,22 @@ def add_attribute_to_jsonl(input_path: str, output_path: str,
 
 
 @app.cell
-def _(jud_col):
-    add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge',jud_col)
+def _(check_json_output, jud_llama):
+    _judge_list = check_json_output(jud_llama)
+    add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_llama',_judge_list)
+    return
+
+
+@app.cell
+def _(check_json_output, jud_mistral):
+    _judge_list = check_json_output(jud_mistral)
+    # add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_mistral',_judge_list)
+    _judge_list
+    return
+
+
+@app.cell
+def _():
     return
 
 
