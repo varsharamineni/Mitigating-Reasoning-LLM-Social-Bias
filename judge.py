@@ -164,56 +164,87 @@ def _(jud_mistral):
 
 
 @app.function
-def repair_json_fragment(raw: str) -> Dict[str, Any]:
-    """
-    Repairs a single malformed JSON fragment by:
-      - Stripping markdown fences if present.
-      - Ensuring it ends with a closing brace and quote for 'reasoning'.
-      - Escaping control characters in the 'reasoning' value.
-      - Parsing into a Python dict.
-    """
-    # Strip markdown fences
-    s = re.sub(r'^```json\s*|```$', '', raw.strip(), flags=re.MULTILINE)
+def repair_json_fragment(raw: str):
+    s = raw.strip()
 
-    # Ensure closing brace
-    if not s.rstrip().endswith('}'):
-        s += '\n}'
+    # Remove markdown fences
+    s = re.sub(r'^```json\s*|```$', '', s, flags=re.MULTILINE).strip()
 
-    # Regex to locate the reasoning field content
-    match = re.search(r'("reasoning"\s*:\s*")([\s\S]*?)(?=\n\})', s)
-    if match:
-        prefix, content = match.group(1), match.group(2)
-        # Escape via json.dumps to handle newlines, quotes, backslashes
-        escaped = json.dumps(content)[1:-1]
-        # Reconstruct the reasoning field with a closing quote
-        replacement = f'{prefix}{escaped}"'
-        s = s[:match.start()] + replacement + s[match.end():]
+    # If wrapped in quotes, unescape and remove them
+    if s.startswith('"') and s.endswith('"'):
+        s = s[1:-1]
+        s = s.encode('utf-8').decode('unicode_escape')
+        if '\\"' in s:
+            s = s.replace('\\"', '"')
 
-    # Remove control characters
+    # Remove any control characters
     s = re.sub(r'[\x00-\x1f\x7f]', '', s)
 
-    # Parse and return
-    return json.loads(s)
+    # Add missing commas between objects in arrays: }{ => },{
+    s = re.sub(r'\}\s*\{', '},{', s)
+
+    # Add missing commas between an array close and an object: ]{ => ],{
+    s = re.sub(r'\]\s*\{', '],[', s)
+
+    # Reorder any number of closing braces before array close:
+    # e.g. '}}]' -> '}]}', '}}}}]' -> '}]}]}'
+    def _reorder(match):
+        braces = match.group(1)
+        count  = braces.count('}')
+        # one } before ], then the remaining } after
+        return '}' + ']' + '}'*(count-1)
+    s = re.sub(r'((?:\}\s*)+)\]', _reorder, s)
+
+    # Remove any trailing commas before } or ]
+    s = re.sub(r',\s*(?=[\}\]])', '', s)
+
+    # Remove any trailing non-JSON content (e.g., stray numbers, text)
+    last_brace = max(s.rfind('}'), s.rfind(']'))
+    if last_brace != -1:
+        s = s[:last_brace+1]
+
+    # Try to close the array and object if not closed
+    if s.count('[') > s.count(']'):
+        s += ']'
+    if s.count('{') > s.count('}'):
+        s += '}'
+
+    # Final parse-attempt
+    try:
+        return json.loads(s)
+    except Exception:
+        print("Failed to parse JSON. Intermediate string:")
+        print(s)
+        raise
+
+@app.function
+def check_json_output(input_list):
+    count = 0
+    jud_list = []
+    for j in input_list:
+        try:
+            j_data = repair_json_fragment(j)
+            # print(j_data)
+            # j_data = repair_json_fragment(j)
+            # j_array_answer = j_data['answer']
+            # j_array_reasoning = j_data['reasoning']
+            # matches = re.findall(r'[01]', j_array_reasoning)
+            # int_matches = [int(bit) for bit in matches]
 
 
-@app.cell
-def _(bbq_df):
-    def check_json_output(input_list):
-        count = 0
-        jud_list = []
-        for j in input_list:
-            try:
-                j_data = repair_json_fragment(j)
-                # j_data = json.loads(j_clean)
-                j_array = j_data['answer']
-                if len(j_array) != len(bbq_df['reasoning_steps'][count]):
-                    print("there is inconsistency")
-                jud_list.append(j_data)
-                count += 1
-            except Exception as e:
-                print(e)
-        return jud_list
-    return (check_json_output,)
+            # if len(j_data['steps']) != len(bbq_df['reasoning_steps'][count]):
+            #     print(count)
+            #     print("there is inconsistency in array length")
+
+            # if int_matches != j_array_answer:
+            #     print(count)
+            #     print(f"{j_array_answer} is not match with {int_matches}")
+            # jud_list.append(j_data)
+            count += 1
+        except Exception as e:
+            print(count)
+            print(e)
+    return jud_list
 
 
 @app.function
@@ -239,14 +270,14 @@ def add_attribute_to_jsonl(input_path: str, output_path: str,
 
 
 @app.cell
-def _(check_json_output, jud_llama):
+def _(jud_llama):
     _judge_list = check_json_output(jud_llama)
     add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_llama',_judge_list)
     return
 
 
 @app.cell
-def _(check_json_output, jud_mistral):
+def _(jud_mistral):
     _judge_list = check_json_output(jud_mistral)
     # add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_mistral',_judge_list)
     _judge_list
