@@ -54,6 +54,16 @@ def _():
 
 @app.cell
 def _():
+    model_mixtral = ChatOpenAI(
+        openai_api_key=os.environ["judge_key"],
+        openai_api_base="https://openrouter.ai/api/v1",
+        model_name="mistralai/mixtral-8x7b-instruct",
+    )
+    return (model_mixtral,)
+
+
+@app.cell
+def _():
     # Read the JSONL file
     with open('reasoning_steps.jsonl', 'r') as file:
         data = [json.loads(line) for line in file]
@@ -133,11 +143,11 @@ def answer_multiple_choice_with_llm(
 
 
 @app.cell
-def _(bbq_df, format_qwen_judge_prompt, model_llama):
+def _(bbq_df, model_llama):
     _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
     jud_llama = answer_multiple_choice_with_llm(
         model_llama, 
-        format_qwen_judge_prompt, 
+        format_mistral_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
@@ -146,6 +156,12 @@ def _(bbq_df, format_qwen_judge_prompt, model_llama):
     bbq_df["judge_llama"] = jud_llama
 
     return (jud_llama,)
+
+
+@app.cell
+def _(jud_llama):
+    jud_llama
+    return
 
 
 @app.cell
@@ -166,6 +182,27 @@ def _(bbq_df, model_mistral):
 @app.cell
 def _(jud_mistral):
     jud_mistral
+    return
+
+
+@app.cell
+def _(bbq_df, model_mixtral):
+    _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
+    jud_mixtral = answer_multiple_choice_with_llm(
+        model_mixtral, 
+        format_mistral_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file
+    )
+    bbq_df["judge_mixtral"] = jud_mixtral
+    return (jud_mixtral,)
+
+
+@app.cell
+def _(jud_mixtral):
+    jud_mixtral
     return
 
 
@@ -271,15 +308,34 @@ def add_attribute_to_jsonl(input_path: str, output_path: str,
 
 @app.cell
 def _(check_json_output, jud_llama):
-    _judge_list = check_json_output(jud_llama)
+    judge_list_llama = check_json_output(jud_llama)
     # add_attribute_to_jsonl('judge.jsonl', 'judge.jsonl', 'judge_llama',_judge_list)
-    return
+    return (judge_list_llama,)
 
 
 @app.cell
 def _(check_json_output, jud_mistral):
-    _judge_list = check_json_output(jud_mistral)
-    add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_mistral',_judge_list)
+    judge_list_mistral = check_json_output(jud_mistral)
+    # add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_mistral',_judge_list)
+    return (judge_list_mistral,)
+
+
+@app.cell
+def _(check_json_output, jud_mixtral):
+    judge_list_mixtral = check_json_output(jud_mixtral)
+    return (judge_list_mixtral,)
+
+
+@app.cell
+def _(judge_list_llama, judge_list_mistral, judge_list_mixtral):
+    judge = {"llama": judge_list_llama, "mistral": judge_list_mistral, "mixtral":judge_list_mixtral}
+    judge_df = pd.DataFrame(data=judge)
+    return (judge_df,)
+
+
+@app.cell
+def _(judge_df):
+    judge_df
     return
 
 
