@@ -23,7 +23,7 @@ with app.setup:
     from os import getenv
     from langchain.chains import LLMChain
     from dotenv import load_dotenv
-    from prompts import format_qwen_judge_prompt, format_prompt_no_cot
+    from prompts import format_mistral_judge_prompt
     from answer_questions import save_checkpoint, load_checkpoint
     from langchain_deepseek import ChatDeepSeek
 
@@ -39,7 +39,7 @@ def _():
         openai_api_base="https://openrouter.ai/api/v1",
         model_name="meta-llama/llama-3-8b-instruct",
     )
-    return
+    return (model_llama,)
 
 
 @app.cell
@@ -57,7 +57,6 @@ def _():
     # Read the JSONL file
     with open('reasoning_steps.jsonl', 'r') as file:
         data = [json.loads(line) for line in file]
-        print(data)
 
     bbq_df = pd.DataFrame(data)
     bbq_df
@@ -134,20 +133,27 @@ def answer_multiple_choice_with_llm(
 
 
 @app.cell
+def _(bbq_df, format_qwen_judge_prompt, model_llama):
+    _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
+    jud_llama = answer_multiple_choice_with_llm(
+        model_llama, 
+        format_qwen_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file
+    )
+    bbq_df["judge_llama"] = jud_llama
+
+    return (jud_llama,)
+
+
+@app.cell
 def _(bbq_df, model_mistral):
     _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
-    # jud_llama = answer_multiple_choice_with_llm(
-    #     model_llama, 
-    #     format_qwen_judge_prompt, 
-    #     "Generating Judge", 
-    #     bbq_df,
-    #     max_concurrency=10,
-    #     checkpoint_file=_judge_checkpoint_file
-    # )
-    # bbq_df["judge_llama"] = jud_llama
     jud_mistral = answer_multiple_choice_with_llm(
         model_mistral, 
-        format_qwen_judge_prompt, 
+        format_mistral_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
@@ -205,7 +211,8 @@ def repair_json_fragment(raw: str):
 
     # Try to close the array and object if not closed
     if s.count('[') > s.count(']'):
-        s += ']'
+        # s += ']'
+        s = s[:-1] + ']' + s[-1]
     if s.count('{') > s.count('}'):
         s += '}'
 
@@ -217,34 +224,27 @@ def repair_json_fragment(raw: str):
         print(s)
         raise
 
-@app.function
-def check_json_output(input_list):
-    count = 0
-    jud_list = []
-    for j in input_list:
-        try:
-            j_data = repair_json_fragment(j)
-            # print(j_data)
-            # j_data = repair_json_fragment(j)
-            # j_array_answer = j_data['answer']
-            # j_array_reasoning = j_data['reasoning']
-            # matches = re.findall(r'[01]', j_array_reasoning)
-            # int_matches = [int(bit) for bit in matches]
 
+@app.cell
+def _(bbq_df):
+    def check_json_output(input_list):
+        count = 0
+        jud_list = []
+        for j in input_list:
+            try:
+                j_data = repair_json_fragment(j)
 
-            # if len(j_data['steps']) != len(bbq_df['reasoning_steps'][count]):
-            #     print(count)
-            #     print("there is inconsistency in array length")
+                if len(j_data['steps']) != len(bbq_df['reasoning_steps'][count]):
+                    print(count)
+                    print("there is inconsistency in array length")
 
-            # if int_matches != j_array_answer:
-            #     print(count)
-            #     print(f"{j_array_answer} is not match with {int_matches}")
-            # jud_list.append(j_data)
-            count += 1
-        except Exception as e:
-            print(count)
-            print(e)
-    return jud_list
+                jud_list.append([items['score'] for items in j_data['steps']])
+                count += 1
+            except Exception as e:
+                print(count)
+                print(e)
+        return jud_list
+    return (check_json_output,)
 
 
 @app.function
@@ -270,22 +270,16 @@ def add_attribute_to_jsonl(input_path: str, output_path: str,
 
 
 @app.cell
-def _(jud_llama):
+def _(check_json_output, jud_llama):
     _judge_list = check_json_output(jud_llama)
-    add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_llama',_judge_list)
+    # add_attribute_to_jsonl('judge.jsonl', 'judge.jsonl', 'judge_llama',_judge_list)
     return
 
 
 @app.cell
-def _(jud_mistral):
+def _(check_json_output, jud_mistral):
     _judge_list = check_json_output(jud_mistral)
-    # add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_mistral',_judge_list)
-    _judge_list
-    return
-
-
-@app.cell
-def _():
+    add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_mistral',_judge_list)
     return
 
 
