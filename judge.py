@@ -323,5 +323,27 @@ def _(judge_df):
     return
 
 
+@app.function
+def agg_judge(df):
+    column_agg = []
+    for i in range(df.shape[0]):
+        item_agg = []
+        for j in range(len(df.iloc[i, 0])):
+            temp = df.iloc[i, 0][j] + df.iloc[i, 1][j] + df.iloc[i, 2][j]
+            if temp >= 2:
+                item_agg.append(1)
+            else:
+                item_agg.append(0)
+        column_agg.append(item_agg)
+    return column_agg
+
+
+@app.cell
+def _(judge_df):
+    judge_df['aggregate'] = agg_judge(judge_df)
+    judge_df
+    return
+
+
 if __name__ == "__main__":
     app.run()
