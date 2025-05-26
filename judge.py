@@ -34,32 +34,12 @@ with app.setup:
 
 @app.cell
 def _():
-    model_llama = ChatOpenAI(
-        openai_api_key=os.environ["judge_key"],
-        openai_api_base="https://openrouter.ai/api/v1",
-        model_name="meta-llama/llama-3-8b-instruct",
-    )
-    return
-
-
-@app.cell
-def _():
     model_mistral = ChatOpenAI(
         openai_api_key=os.environ["judge_key"],
         openai_api_base="https://openrouter.ai/api/v1",
         model_name="mistralai/mistral-7b-instruct",
     )
     return (model_mistral,)
-
-
-@app.cell
-def _():
-    model_mixtral = ChatOpenAI(
-        openai_api_key=os.environ["judge_key"],
-        openai_api_base="https://openrouter.ai/api/v1",
-        model_name="mistralai/mixtral-8x7b-instruct",
-    )
-    return
 
 
 @app.cell
