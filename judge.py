@@ -39,7 +39,7 @@ def _():
         openai_api_base="https://openrouter.ai/api/v1",
         model_name="meta-llama/llama-3-8b-instruct",
     )
-    return (model_llama,)
+    return
 
 
 @app.cell
@@ -59,7 +59,27 @@ def _():
         openai_api_base="https://openrouter.ai/api/v1",
         model_name="mistralai/mixtral-8x7b-instruct",
     )
-    return (model_mixtral,)
+    return
+
+
+@app.cell
+def _():
+    model_claude = ChatOpenAI(
+        openai_api_key=os.environ["judge_key"],
+        openai_api_base="https://openrouter.ai/api/v1",
+        model_name="anthropic/claude-3.7-sonnet",
+    )
+    return (model_claude,)
+
+
+@app.cell
+def _():
+    model_gemini = ChatOpenAI(
+        openai_api_key=os.environ["judge_key"],
+        openai_api_base="https://openrouter.ai/api/v1",
+        model_name="google/gemini-2.0-flash-lite-001",
+    )
+    return (model_gemini,)
 
 
 @app.cell
@@ -143,25 +163,33 @@ def answer_multiple_choice_with_llm(
 
 
 @app.cell
-def _(bbq_df, model_llama):
+def _(bbq_df, model_claude):
     _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
-    jud_llama = answer_multiple_choice_with_llm(
-        model_llama, 
+    jud_claude = answer_multiple_choice_with_llm(
+        model_claude, 
         format_mistral_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
         checkpoint_file=_judge_checkpoint_file
     )
-    bbq_df["judge_llama"] = jud_llama
-
-    return (jud_llama,)
+    bbq_df["judge_claude"] = jud_claude
+    return (jud_claude,)
 
 
 @app.cell
-def _(jud_llama):
-    jud_llama
-    return
+def _(bbq_df, model_gemini):
+    _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
+    jud_gemini = answer_multiple_choice_with_llm(
+        model_gemini, 
+        format_mistral_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file
+    )
+    bbq_df["judge_gemini"] = jud_gemini
+    return (jud_gemini,)
 
 
 @app.cell
@@ -177,33 +205,6 @@ def _(bbq_df, model_mistral):
     )
     bbq_df["judge_mistral"] = jud_mistral
     return (jud_mistral,)
-
-
-@app.cell
-def _(jud_mistral):
-    jud_mistral
-    return
-
-
-@app.cell
-def _(bbq_df, model_mixtral):
-    _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
-    jud_mixtral = answer_multiple_choice_with_llm(
-        model_mixtral, 
-        format_mistral_judge_prompt, 
-        "Generating Judge", 
-        bbq_df,
-        max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file
-    )
-    bbq_df["judge_mixtral"] = jud_mixtral
-    return (jud_mixtral,)
-
-
-@app.cell
-def _(jud_mixtral):
-    jud_mixtral
-    return
 
 
 @app.function
@@ -252,6 +253,10 @@ def repair_json_fragment(raw: str):
         s = s[:-1] + ']' + s[-1]
     if s.count('{') > s.count('}'):
         s += '}'
+    # elif s.count('{') < s.count('}'):
+    #     if s[-2] == '}' and s[-1] == '}':
+    #         print("hiiiiiiiiiiiiiiiii")
+    #         s = s[:-1]
 
     # Final parse-attempt
     try:
@@ -307,10 +312,15 @@ def add_attribute_to_jsonl(input_path: str, output_path: str,
 
 
 @app.cell
-def _(check_json_output, jud_llama):
-    judge_list_llama = check_json_output(jud_llama)
-    # add_attribute_to_jsonl('judge.jsonl', 'judge.jsonl', 'judge_llama',_judge_list)
-    return (judge_list_llama,)
+def _(check_json_output, jud_claude):
+    judge_list_claude = check_json_output(jud_claude)
+    return (judge_list_claude,)
+
+
+@app.cell
+def _(check_json_output, jud_gemini):
+    judge_list_gemini = check_json_output(jud_gemini)
+    return (judge_list_gemini,)
 
 
 @app.cell
@@ -321,14 +331,8 @@ def _(check_json_output, jud_mistral):
 
 
 @app.cell
-def _(check_json_output, jud_mixtral):
-    judge_list_mixtral = check_json_output(jud_mixtral)
-    return (judge_list_mixtral,)
-
-
-@app.cell
-def _(judge_list_llama, judge_list_mistral, judge_list_mixtral):
-    judge = {"llama": judge_list_llama, "mistral": judge_list_mistral, "mixtral":judge_list_mixtral}
+def _(judge_list_claude, judge_list_gemini, judge_list_mistral):
+    judge = {"claude": judge_list_claude, "mistral": judge_list_mistral, "gemini" : judge_list_gemini}
     judge_df = pd.DataFrame(data=judge)
     return (judge_df,)
 
