@@ -23,7 +23,7 @@ with app.setup:
     from os import getenv
     from langchain.chains import LLMChain
     from dotenv import load_dotenv
-    from prompts import format_mistral_judge_prompt
+    from prompts import format_judge_prompt, format_judge_prompt_v2
     from answer_questions import save_checkpoint, load_checkpoint
     from langchain_deepseek import ChatDeepSeek
 
@@ -40,6 +40,26 @@ def _():
         model_name="mistralai/mistral-7b-instruct",
     )
     return (model_mistral,)
+
+
+@app.cell
+def _():
+    model_llama = ChatOpenAI(
+        openai_api_key=os.environ["judge_key"],
+        openai_api_base="https://openrouter.ai/api/v1",
+        model_name="meta-llama/llama-3-8b-instruct",
+    )
+    return (model_llama,)
+
+
+@app.cell
+def _():
+    model_mixtral = ChatOpenAI(
+        openai_api_key=os.environ["judge_key"],
+        openai_api_base="https://openrouter.ai/api/v1",
+        model_name="mistralai/mixtral-8x7b-instruct",
+    )
+    return (model_mixtral,)
 
 
 @app.cell
@@ -65,6 +85,7 @@ def _():
 @app.cell
 def _():
     # Read the JSONL file
+    # with open('distill_cot_Age_cleaned.jsonl', 'r') as file:
     with open('reasoning_steps.jsonl', 'r') as file:
         data = [json.loads(line) for line in file]
 
@@ -142,12 +163,29 @@ def answer_multiple_choice_with_llm(
     return results
 
 
+@app.function
+def reprompt_judge(
+    llm: BaseChatModel,
+    prompt_formatter: Callable[[pd.Series], str], 
+    df: pd.DataFrame,
+    ):
+
+    try:
+        response = llm.invoke(prompt_formatter(df)).content
+             
+    except Exception as e:
+        rich.print(f"[red]Error occurred:[/red] {str(e)}")
+        raise e
+
+    return response
+
+
 @app.cell
 def _(bbq_df, model_claude):
     _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
     jud_claude = answer_multiple_choice_with_llm(
         model_claude, 
-        format_mistral_judge_prompt, 
+        format_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
@@ -158,11 +196,17 @@ def _(bbq_df, model_claude):
 
 
 @app.cell
+def _(jud_claude):
+    jud_claude
+    return
+
+
+@app.cell
 def _(bbq_df, model_gemini):
     _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
     jud_gemini = answer_multiple_choice_with_llm(
         model_gemini, 
-        format_mistral_judge_prompt, 
+        format_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
@@ -173,11 +217,17 @@ def _(bbq_df, model_gemini):
 
 
 @app.cell
+def _(jud_gemini):
+    jud_gemini
+    return
+
+
+@app.cell
 def _(bbq_df, model_mistral):
     _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
     jud_mistral = answer_multiple_choice_with_llm(
         model_mistral, 
-        format_mistral_judge_prompt, 
+        format_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
@@ -187,80 +237,70 @@ def _(bbq_df, model_mistral):
     return (jud_mistral,)
 
 
+@app.cell
+def _(bbq_df, model_llama):
+    _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
+    jud_llama = answer_multiple_choice_with_llm(
+        model_llama, 
+        format_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file
+    )
+    bbq_df["judge_llama"] = jud_llama
+    return (jud_llama,)
+
+
+@app.cell
+def _(bbq_df, model_mixtral):
+    _judge_checkpoint_file = os.path.join("checkpoints", "judge_checkpoint.json")
+    jud_mixtral = answer_multiple_choice_with_llm(
+        model_mixtral, 
+        format_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file
+    )
+    bbq_df["judge_mixtral"] = jud_mixtral
+    return (jud_mixtral,)
+
+
+@app.cell
+def _(jud_mistral):
+    jud_mistral
+    return
+
+
 @app.function
 def repair_json_fragment(raw: str):
-    s = raw.strip()
-
-    # Remove markdown fences
-    s = re.sub(r'^```json\s*|```$', '', s, flags=re.MULTILINE).strip()
-
-    # If wrapped in quotes, unescape and remove them
-    if s.startswith('"') and s.endswith('"'):
-        s = s[1:-1]
-        s = s.encode('utf-8').decode('unicode_escape')
-        if '\\"' in s:
-            s = s.replace('\\"', '"')
-
-    # Remove any control characters
-    s = re.sub(r'[\x00-\x1f\x7f]', '', s)
-
-    # Add missing commas between objects in arrays: }{ => },{
-    s = re.sub(r'\}\s*\{', '},{', s)
-
-    # Add missing commas between an array close and an object: ]{ => ],{
-    s = re.sub(r'\]\s*\{', '],[', s)
-
-    # Reorder any number of closing braces before array close:
-    # e.g. '}}]' -> '}]}', '}}}}]' -> '}]}]}'
-    def _reorder(match):
-        braces = match.group(1)
-        count  = braces.count('}')
-        # one } before ], then the remaining } after
-        return '}' + ']' + '}'*(count-1)
-    s = re.sub(r'((?:\}\s*)+)\]', _reorder, s)
-
-    # Remove any trailing commas before } or ]
-    s = re.sub(r',\s*(?=[\}\]])', '', s)
-
-    # Remove any trailing non-JSON content (e.g., stray numbers, text)
-    last_brace = max(s.rfind('}'), s.rfind(']'))
-    if last_brace != -1:
-        s = s[:last_brace+1]
-
-    # Try to close the array and object if not closed
-    if s.count('[') > s.count(']'):
-        # s += ']'
-        s = s[:-1] + ']' + s[-1]
-    if s.count('{') > s.count('}'):
-        s += '}'
-    # elif s.count('{') < s.count('}'):
-    #     if s[-2] == '}' and s[-1] == '}':
-    #         print("hiiiiiiiiiiiiiiiii")
-    #         s = s[:-1]
-
-    # Final parse-attempt
-    try:
-        return json.loads(s)
-    except Exception:
-        print("Failed to parse JSON. Intermediate string:")
-        print(s)
-        raise
+    # find all “0” or “1” characters and convert to int
+    return [int(bit) for bit in re.findall(r'\d+', raw)]
 
 
 @app.cell
 def _(bbq_df):
-    def check_json_output(input_list):
+    def check_json_output(
+        input_list,
+        llm,
+        prompt):
         count = 0
         jud_list = []
         for j in input_list:
             try:
                 j_data = repair_json_fragment(j)
 
-                if len(j_data['steps']) != len(bbq_df['reasoning_steps'][count]):
+                if len(j_data) != len(bbq_df['reasoning_steps'][count]):
                     print(count)
                     print("there is inconsistency in array length")
+                    print(f"it should be {len(bbq_df['reasoning_steps'][count])} but it is {len(j_data)}")
+                    new_j = reprompt_judge(llm, prompt, bbq_df.iloc[count])
+                    j_data = repair_json_fragment(new_j)
+                    print(f"now it is {len(bbq_df['reasoning_steps'][count])} while it should be {len(j_data)}")
 
-                jud_list.append([items['score'] for items in j_data['steps']])
+                jud_list.append([item if item in (0, 1) else 0 for item in j_data])
+
                 count += 1
             except Exception as e:
                 print(count)
@@ -294,25 +334,37 @@ def add_attribute_to_jsonl(input_path: str, output_path: str,
 @app.cell
 def _(check_json_output, jud_claude):
     judge_list_claude = check_json_output(jud_claude)
-    return (judge_list_claude,)
+    return
 
 
 @app.cell
 def _(check_json_output, jud_gemini):
     judge_list_gemini = check_json_output(jud_gemini)
-    return (judge_list_gemini,)
+    return
 
 
 @app.cell
-def _(check_json_output, jud_mistral):
-    judge_list_mistral = check_json_output(jud_mistral)
+def _(check_json_output, jud_mistral, model_mistral):
+    judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2)
     # add_attribute_to_jsonl('reasoning_steps.jsonl', 'judge.jsonl', 'judge_mistral',_judge_list)
     return (judge_list_mistral,)
 
 
 @app.cell
-def _(judge_list_claude, judge_list_gemini, judge_list_mistral):
-    judge = {"claude": judge_list_claude, "mistral": judge_list_mistral, "gemini" : judge_list_gemini}
+def _(check_json_output, jud_llama, model_llama):
+    judge_list_llama = check_json_output(jud_llama, model_llama, format_judge_prompt_v2)
+    return (judge_list_llama,)
+
+
+@app.cell
+def _(check_json_output, jud_mixtral, model_mixtral):
+    judge_list_mixtral = check_json_output(jud_mixtral, model_mixtral, format_judge_prompt_v2)
+    return (judge_list_mixtral,)
+
+
+@app.cell
+def _(judge_list_llama, judge_list_mistral, judge_list_mixtral):
+    judge = {"llama": judge_list_llama, "mistral": judge_list_mistral, "mixtral" : judge_list_mixtral}
     judge_df = pd.DataFrame(data=judge)
     return (judge_df,)
 
