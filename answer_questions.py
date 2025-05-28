@@ -146,19 +146,14 @@ def create_checkpoint_file(checkpoint_path: str) -> str:
 
 
 @app.cell
-def _(
-    creae_checkpoint_file,
-    no_cot_checkpoint_file,
-    unbiased_cot_checkpoint_file,
-    with_cot_checkpoint_file,
-):
+def _():
     def answer_no_cot(
         checkpoint_name: str,
         df: pd.DataFrame,
         llm: BaseChatModel,
         max_concurrency: int = 50,
     ) -> list:
-        create_checkpoint_file(f"{checkpoint_name}_no_cot_checkpoint.json")
+        no_cot_checkpoint_file = create_checkpoint_file(f"{checkpoint_name}_no_cot_checkpoint.json")
         return answer_multiple_choice_with_llm(
             llm,
             format_prompt_no_cot,
@@ -174,7 +169,7 @@ def _(
         llm: BaseChatModel,
         max_concurrency: int = 50,
     ) -> list:
-        creae_checkpoint_file(f"{checkpoint_name}_with_cot_checkpoint.json")
+        with_cot_checkpoint_file = create_checkpoint_file(f"{checkpoint_name}_with_cot_checkpoint.json")
         return answer_multiple_choice_with_llm(
             llm,
             format_prompt_with_cot,
@@ -190,7 +185,7 @@ def _(
         llm: BaseChatModel,
         max_concurrency: int = 50,
     ) -> list:
-        create_checkpoint_file(f"{checkpoint_name}_unbiased_cot_checkpoint.json")
+        unbiased_cot_checkpoint_file = create_checkpoint_file(f"{checkpoint_name}_unbiased_cot_checkpoint.json")
         return answer_multiple_choice_with_llm(
             llm,
             format_prompt_with_unbiased_cot,
@@ -204,7 +199,31 @@ def _(
 
 
 @app.cell
-def _(answer_no_cot, answer_unbiased_cot, answer_with_cot, structured_llm):
+def _(answer_no_cot, answer_unbiased_cot, answer_with_cot):
+    def get_all_answers(output_dir: str, dataset_path: str, llm: BaseChatModel):
+        dataset_name = os.path.splitext(os.path.basename(dataset_path))[0]
+        checkpoint_name = dataset_path.replace(os.path.sep, "_")
+        df = pd.read_json(dataset_path, orient="records", lines=True)
+
+        df["no_cot_answer"] = answer_no_cot(
+            checkpoint_name, df, llm, max_concurrency=50
+        )
+        df["cot_answer"] = answer_with_cot(checkpoint_name, df, llm, max_concurrency=50)
+        df["unbiased_cot_answer"] = answer_unbiased_cot(
+            checkpoint_name, df, llm, max_concurrency=50
+        )
+
+        output_path = os.path.join(
+            output_dir, f"{dataset_name}-answers-nocot-cot-unbiasedcot.jsonl"
+        )
+        df.to_json(output_path, orient="records", lines=True)
+        rich.print(f"[green]Processed and saved:[/green] {output_path}")
+
+    return (get_all_answers,)
+
+
+@app.cell
+def _answer_multiple_choice_with_llm(get_all_answers, structured_llm):
     import glob
 
     DATASETS_DIR = "datasets"
@@ -213,27 +232,15 @@ def _(answer_no_cot, answer_unbiased_cot, answer_with_cot, structured_llm):
 
     dataset_files = glob.glob(os.path.join(DATASETS_DIR, "*.jsonl"))
     results = {}
-    for dataset_path in dataset_files:
-        dataset_name = os.path.splitext(os.path.basename(dataset_path))[0]
-        checkpoint_name = dataset_path.replace(os.path.sep, "_")
-        df = pd.read_json(dataset_path, orient="records", lines=True)
+    just_answer_this = "datasets/small_judge_llama_mistral_mixtral.jsonl"
 
-        df["no_cot_answer"] = answer_no_cot(
-            checkpoint_name, df, structured_llm, max_concurrency=50
-        )
-        df["cot_answer"] = answer_with_cot(
-            checkpoint_name, df, structured_llm, max_concurrency=50
-        )
-        df["unbiased_cot_answer"] = answer_unbiased_cot(
-            checkpoint_name, df, structured_llm, max_concurrency=50
-        )
+    if just_answer_this is None:
+        for dataset_path in dataset_files:
+            get_all_answers(OUTPUT_DIR, dataset_path, structured_llm)
+    else:
+        get_all_answers(OUTPUT_DIR, just_answer_this, structured_llm)
 
-        output_path = os.path.join(
-            OUTPUT_DIR, f"{dataset_name}-answers-nocot-cot-unbiasedcot.jsonl"
-        )
-        df.to_json(output_path, orient="records", lines=True)
-        results[dataset_name] = output_path
-        rich.print(f"[green]Processed and saved:[/green] {output_path}")
+
     return
 
 

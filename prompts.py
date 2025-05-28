@@ -57,10 +57,11 @@ Answer choices:
 </think>
 """)
 
+
 def format_prompt_no_cot(bias_question_data: Dict[str, Any]) -> List[Any]:
     """
     Format a prompt without chain-of-thought reasoning.
-    
+
     Args:
         bias_question_data (Dict[str, Any]): Dictionary containing the question data with keys:
             - context (str): The context of the question
@@ -68,7 +69,7 @@ def format_prompt_no_cot(bias_question_data: Dict[str, Any]) -> List[Any]:
             - ans0 (str): First answer choice
             - ans1 (str): Second answer choice
             - ans2 (str): Third answer choice
-    
+
     Returns:
         List[Any]: Formatted prompt messages ready for the language model
     """
@@ -81,10 +82,11 @@ def format_prompt_no_cot(bias_question_data: Dict[str, Any]) -> List[Any]:
     )
     return formatted_prompt
 
+
 def format_prompt_with_cot(bias_question_data: Dict[str, Any]) -> List[Any]:
     """
     Format a prompt with chain-of-thought reasoning.
-    
+
     Args:
         bias_question_data (Dict[str, Any]): Dictionary containing the question data with keys:
             - context (str): The context of the question
@@ -93,11 +95,11 @@ def format_prompt_with_cot(bias_question_data: Dict[str, Any]) -> List[Any]:
             - ans1 (str): Second answer choice
             - ans2 (str): Third answer choice
             - cot (List[str]): List of chain-of-thought reasoning steps
-    
+
     Returns:
         List[Any]: Formatted prompt messages ready for the language model
     """
-    cot_str = "\n".join(bias_question_data["cleaned_cot"])
+    cot_str = "\n".join(bias_question_data["cot"])
     formatted_prompt = _with_cot_prompt_template.format_messages(
         cot=cot_str,
         context=bias_question_data["context"],
@@ -108,10 +110,11 @@ def format_prompt_with_cot(bias_question_data: Dict[str, Any]) -> List[Any]:
     )
     return formatted_prompt
 
+
 def format_prompt_with_unbiased_cot(bias_question_data: Dict[str, Any]) -> List[Any]:
     """
     Format a prompt with only unbiased chain-of-thought reasoning steps.
-    
+
     Args:
         bias_question_data (Dict[str, Any]): Dictionary containing the question data with keys:
             - context (str): The context of the question
@@ -121,13 +124,15 @@ def format_prompt_with_unbiased_cot(bias_question_data: Dict[str, Any]) -> List[
             - ans2 (str): Third answer choice
             - cot (List[str]): List of chain-of-thought reasoning steps
             - judge_agg (List[int]): List of bias judgments (0 for unbiased, 1 for biased)
-    
+
     Returns:
         List[Any]: Formatted prompt messages ready for the language model, containing only unbiased CoT steps
     """
     # Find indices where judge_agg value is 0 (unbiased)
-    unbiased_indexs = np.where(np.array(bias_question_data["judge_agg"]) == 0)[0]
-    unbiased_cot_str = "\n".join([bias_question_data["cot"][i] for i in unbiased_indexs])
+    unbiased_indexs = np.where(np.array(bias_question_data["judge_aggregate"]) == 0)[0]
+    unbiased_cot_str = "\n".join(
+        [bias_question_data["cot"][i] for i in unbiased_indexs]
+    )
     formatted_prompt = _with_cot_prompt_template.format_messages(
         cot=unbiased_cot_str,
         context=bias_question_data["context"],
@@ -136,4 +141,4 @@ def format_prompt_with_unbiased_cot(bias_question_data: Dict[str, Any]) -> List[
         ans1=bias_question_data["ans1"],
         ans2=bias_question_data["ans2"],
     )
-    return formatted_prompt 
+    return formatted_prompt
