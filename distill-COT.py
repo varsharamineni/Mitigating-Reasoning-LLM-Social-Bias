@@ -26,7 +26,7 @@ with app.setup:
     os.makedirs("checkpoints", exist_ok=True)
 
     # Dataset configuration
-    DATASET_NAME = "Age"
+    DATASET_NAME = "Gender_identity"
 
 
 @app.cell
@@ -93,6 +93,7 @@ async def process_chunk(client: AsyncOpenAI, prompts: List[str]) -> List[str]:
                     }
                 ]
             )
+            # Return the raw response text
             return response.choices[0].message.reasoning
         except Exception as e:
             print(f"Error processing prompt: {str(e)}")
@@ -123,7 +124,7 @@ async def answer_multiple_choice_with_llm(
     df: pd.DataFrame,
     max_concurrency: int = 5,  # Increased default concurrency
     checkpoint_file: Optional[str] = None
-) -> List[str]:
+) -> List[List[str]]:
     """Process multiple-choice questions using an LLM in batches with checkpointing."""
     # Try to load checkpoint if available
     if checkpoint_file:
@@ -173,10 +174,10 @@ async def answer_multiple_choice_with_llm(
 @app.function
 def process_cot(cot_text: str) -> List[str]:
     """Process chain-of-thought text into a list of sentences.
-    
+
     Args:
         cot_text (str): The chain-of-thought text to process
-        
+
     Returns:
         List[str]: List of sentences from the chain-of-thought
     """
@@ -209,14 +210,57 @@ async def _(bbq_df, client):
         for idx, row in bbq_df.iterrows():
             # Create a dictionary with all original fields
             output_dict = row.to_dict()
-            # Add the chain-of-thought reasoning
-            output_dict['cot'] = results[idx]
-            # Add the cleaned chain-of-thought as a list of sentences
-            output_dict['cleaned_cot'] = process_cot(results[idx])
+            # Add the chain-of-thought as a list of sentences
+            output_dict['cot'] = process_cot(results[idx])
             # Write as a single line of JSON
             f.write(json.dumps(output_dict) + '\n')
-    
+
     print(f"\nSaved results to {output_file}")
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
     return
 
 
