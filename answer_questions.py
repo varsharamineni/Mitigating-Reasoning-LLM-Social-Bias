@@ -232,7 +232,7 @@ def _answer_multiple_choice_with_llm(get_all_answers, structured_llm):
 
     dataset_files = glob.glob(os.path.join(DATASETS_DIR, "*.jsonl"))
     results = {}
-    just_answer_this = "datasets/small_judge_llama_mistral_mixtral.jsonl"
+    just_answer_this = "datasets/judge_llama_mistral_mixtral_agg.jsonl"
 
     if just_answer_this is None:
         for dataset_path in dataset_files:
