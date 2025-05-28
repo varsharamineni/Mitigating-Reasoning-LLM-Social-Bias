@@ -32,46 +32,15 @@ with app.setup:
     os.makedirs("checkpoints", exist_ok=True)
 
 
-@app.cell
-def _():
-    model_mistral = ChatOpenAI(
-        openai_api_key=os.environ["judge_key"],
-        openai_api_base="https://openrouter.ai/api/v1",
-        model_name="mistralai/mistral-7b-instruct",
-    )
-    return (model_mistral,)
-
-
-@app.cell
-def _():
-    model_llama = ChatOpenAI(
-        openai_api_key=os.environ["judge_key"],
-        openai_api_base="https://openrouter.ai/api/v1",
-        model_name="meta-llama/llama-3-8b-instruct",
-    )
-    return (model_llama,)
-
-
-@app.cell
-def _():
-    model_mixtral = ChatOpenAI(
-        openai_api_key=os.environ["judge_key"],
-        openai_api_base="https://openrouter.ai/api/v1",
-        model_name="mistralai/mixtral-8x7b-instruct",
-    )
-    return (model_mixtral,)
-
-
-@app.cell
-def _():
-    # Read the JSONL file
-    with open('distill_cot_Age_cleaned.jsonl', 'r') as file:
-    # with open('reasoning_steps.jsonl', 'r') as file:
+@app.function
+def read_json_file(file_name):
+# Read the JSONL file
+# with open('distill_cot_Age_cleaned.jsonl', 'r') as file:
+# with open('reasoning_steps.jsonl', 'r') as file:
+    with open(file_name, 'r') as file:
         data = [json.loads(line) for line in file]
 
-    bbq_df = pd.DataFrame(data)
-    # bbq_df
-    return (bbq_df,)
+    return pd.DataFrame(data)
 
 
 @app.function
@@ -80,8 +49,8 @@ def answer_multiple_choice_with_llm(
     prompt_formatter: Callable[[pd.Series], str],
     desc: str,
     df: pd.DataFrame,
-    max_concurrency: int = 10,
-    checkpoint_file: Optional[str] = None
+    max_concurrency: int = 20
+    # checkpoint_file: Optional[str] = None
 ) -> List[str]:
     """Process multiple-choice questions using an LLM in batches with checkpointing.
 
@@ -96,30 +65,30 @@ def answer_multiple_choice_with_llm(
     Returns:
         List of answer strings
     """
-    # Try to load checkpoint if available
-    if checkpoint_file:
-        checkpoint_data = load_checkpoint(checkpoint_file)
-        if checkpoint_data is not None:
-            results = checkpoint_data['answers']
-            last_processed_idx = checkpoint_data['last_processed_idx']
-            rich.print(f"[yellow]Continuing from checkpoint:[/yellow] Processed {last_processed_idx + 1} questions")
-            rich.print(f"[yellow]Remaining questions:[/yellow] {len(df) - (last_processed_idx + 1)}")
-            # Start from the next unanswered question
-            df = df.iloc[last_processed_idx + 1:]
-        else:
-            results = []
-            rich.print("[green]No checkpoint found. Starting from beginning.[/green]")
-    else:
-        results = []
-        rich.print("[green]No checkpoint file specified. Starting from beginning.[/green]")
-
+    # # Try to load checkpoint if available
+    # if checkpoint_file:
+    #     checkpoint_data = load_checkpoint(checkpoint_file)
+    #     if checkpoint_data is not None:
+    #         results = checkpoint_data['answers']
+    #         last_processed_idx = checkpoint_data['last_processed_idx']
+    #         rich.print(f"[yellow]Continuing from checkpoint:[/yellow] Processed {last_processed_idx + 1} questions")
+    #         rich.print(f"[yellow]Remaining questions:[/yellow] {len(df) - (last_processed_idx + 1)}")
+    #         # Start from the next unanswered question
+    #         df = df.iloc[last_processed_idx + 1:]
+    #     else:
+    #         results = []
+    #         rich.print("[green]No checkpoint found. Starting from beginning.[/green]")
+    # else:
+    #     results = []
+    #     rich.print("[green]No checkpoint file specified. Starting from beginning.[/green]")
+    results = []
     try:
          # Process dataframe in chunks with progress bar
          for i in tqdm(range(0, len(df), max_concurrency), desc=desc):
              chunk = df.iloc[i:i+max_concurrency]
              # Create prompts for this chunk
              chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
-             save_checkpoint = chunk_prompts
+             # save_checkpoint = chunk_prompts
              # Process this chunk
 
              config = RunnableConfig(max_concurrency=max_concurrency)
@@ -136,8 +105,8 @@ def answer_multiple_choice_with_llm(
 
     except Exception as e:
         rich.print(f"[red]Error occurred:[/red] {str(e)}")
-        if checkpoint_file:
-            rich.print(f"[yellow]Progress saved to checkpoint file:[/yellow] {checkpoint_file}")
+        # if checkpoint_file:
+        #     rich.print(f"[yellow]Progress saved to checkpoint file:[/yellow] {checkpoint_file}")
         raise e
 
     return results
@@ -158,51 +127,6 @@ def reprompt_judge(
         raise e
 
     return response
-
-
-@app.cell
-def _(bbq_df, model_mistral):
-    _judge_checkpoint_file = os.path.join("checkpoints", "judge_mistral_checkpoint.json")
-    jud_mistral = answer_multiple_choice_with_llm(
-        model_mistral, 
-        format_judge_prompt, 
-        "Generating Judge", 
-        bbq_df,
-        max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file
-    )
-    bbq_df["judge_mistral"] = jud_mistral
-    return (jud_mistral,)
-
-
-@app.cell
-def _(bbq_df, model_llama):
-    _judge_checkpoint_file = os.path.join("checkpoints", "judge_llama_checkpoint.json")
-    jud_llama = answer_multiple_choice_with_llm(
-        model_llama, 
-        format_judge_prompt, 
-        "Generating Judge", 
-        bbq_df,
-        max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file
-    )
-    bbq_df["judge_llama"] = jud_llama
-    return (jud_llama,)
-
-
-@app.cell
-def _(bbq_df, model_mixtral):
-    _judge_checkpoint_file = os.path.join("checkpoints", "judge_mixtra_lcheckpoint.json")
-    jud_mixtral = answer_multiple_choice_with_llm(
-        model_mixtral, 
-        format_judge_prompt, 
-        "Generating Judge", 
-        bbq_df,
-        max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file
-    )
-    bbq_df["judge_mixtral"] = jud_mixtral
-    return (jud_mixtral,)
 
 
 @app.function
@@ -275,6 +199,86 @@ def add_attribute_to_jsonl(input_path: str, output_path: str,
             count += 1
 
 
+@app.function
+def agg_judge(df):
+    column_agg = []
+    for i in range(df.shape[0]):
+        item_agg = []
+        for j in range(len(df.iloc[i, 0])):
+            temp = df.iloc[i, 0][j] + df.iloc[i, 1][j] + df.iloc[i, 2][j]
+            if temp >= 2:
+                item_agg.append(1)
+            else:
+                item_agg.append(0)
+        column_agg.append(item_agg)
+    return column_agg
+
+
+@app.function
+def judge_model(model_name, temp = 0.15):
+
+    return ChatOpenAI(
+        openai_api_key=os.environ["judge_key"],
+        openai_api_base="https://openrouter.ai/api/v1",
+        # model_name="mistralai/mistral-7b-instruct",
+        model_name = model_name,
+        temperature=temp
+    )
+
+
+@app.cell
+def _():
+    model_mistral = judge_model("mistralai/mistral-7b-instruct")
+    model_llama = judge_model("meta-llama/llama-3-8b-instruct")
+    model_mixtral = judge_model("mistralai/mixtral-8x7b-instruct")
+    return model_llama, model_mistral, model_mixtral
+
+
+@app.cell
+def _(bbq_df, model_mistral):
+    # _judge_checkpoint_file = os.path.join("checkpoints", "judge_mistral_checkpoint.json")
+    jud_mistral = answer_multiple_choice_with_llm(
+        model_mistral, 
+        format_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10
+        # checkpoint_file=_judge_checkpoint_file
+    )
+    # bbq_df["judge_mistral"] = jud_mistral
+    return (jud_mistral,)
+
+
+@app.cell
+def _(bbq_df, model_llama):
+    # _judge_checkpoint_file = os.path.join("checkpoints", "judge_llama_checkpoint.json")
+    jud_llama = answer_multiple_choice_with_llm(
+        model_llama, 
+        format_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file
+    )
+    # bbq_df["judge_llama"] = jud_llama
+    return (jud_llama,)
+
+
+@app.cell
+def _(bbq_df, model_mixtral):
+    # _judge_checkpoint_file = os.path.join("checkpoints", "judge_mixtra_lcheckpoint.json")
+    jud_mixtral = answer_multiple_choice_with_llm(
+        model_mixtral, 
+        format_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file
+    )
+    # bbq_df["judge_mixtral"] = jud_mixtral
+    return (jud_mixtral,)
+
+
 @app.cell
 def _(check_json_output, jud_mistral, model_mistral):
     judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2)
@@ -307,42 +311,19 @@ def _(check_json_output, jud_mixtral, model_mixtral):
 
 @app.cell
 def _(judge_list_mixtral):
-    add_attribute_to_jsonl('distill_cot_Age_cleaned.jsonl', 'judge_llama_mistral_mixtral.jsonl', 'judge_mixtral',judge_list_mixtral)
+    add_attribute_to_jsonl('judge_llama_mistral.jsonl', 'judge_llama_mistral_mixtral.jsonl', 'judge_mixtral',judge_list_mixtral)
     return
 
 
 @app.cell
-def _(judge_list_llama, judge_list_mistral, judge_list_mixtral):
-    judge = {"llama": judge_list_llama, "mistral": judge_list_mistral, "mixtral" : judge_list_mixtral}
-    judge_df = pd.DataFrame(data=judge)
+def _():
+    judge_df = read_json_file('judge_llama_mistral_mixtral.jsonl')
     return (judge_df,)
 
 
 @app.cell
 def _(judge_df):
-    judge_df
-    return
-
-
-@app.function
-def agg_judge(df):
-    column_agg = []
-    for i in range(df.shape[0]):
-        item_agg = []
-        for j in range(len(df.iloc[i, 0])):
-            temp = df.iloc[i, 0][j] + df.iloc[i, 1][j] + df.iloc[i, 2][j]
-            if temp >= 2:
-                item_agg.append(1)
-            else:
-                item_agg.append(0)
-        column_agg.append(item_agg)
-    return column_agg
-
-
-@app.cell
-def _(judge_df):
-    judge_df['aggregate'] = agg_judge(judge_df)
-    judge_df
+    judge_df['judge_aggregate'] = agg_judge(judge_df[['judge_llama', 'judge_mistral', 'judge_mixtral']])
     return
 
 
