@@ -155,12 +155,14 @@ def _(bbq_df):
                     while(flag and itr > 0):
                         itr -= 1
                         print(f"====================================try to get correct answer -time : {itr} ==============================")
-                        new_j = reprompt_judge(llm, prompt, bbq_df.iloc[count])
-                        j_data = repair_json_fragment(new_j)
-                        print(f"now it is {len(j_data)} while it should be {len(bbq_df['cleaned_cot'][count])}")
-                        if len(bbq_df['cleaned_cot'][count]) == len(j_data):
-                            flag = False
-
+                        try:
+                            new_j = reprompt_judge(llm, prompt, bbq_df.iloc[count])
+                            j_data = repair_json_fragment(new_j)
+                            print(f"now it is {len(j_data)} while it should be {len(bbq_df['cleaned_cot'][count])}")
+                            if len(bbq_df['cleaned_cot'][count]) == len(j_data):
+                                flag = False
+                        except Exception as e:
+                            print(f"Exception : {e}")
                     if(flag):
                         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                         print("result still is bullshit") 
@@ -220,7 +222,6 @@ def judge_model(model_name, temp = 0.15):
     return ChatOpenAI(
         openai_api_key=os.environ["judge_key"],
         openai_api_base="https://openrouter.ai/api/v1",
-        # model_name="mistralai/mistral-7b-instruct",
         model_name = model_name,
         temperature=temp
     )
@@ -228,25 +229,31 @@ def judge_model(model_name, temp = 0.15):
 
 @app.cell
 def _():
-    model_mistral = judge_model("mistralai/mistral-7b-instruct")
-    model_llama = judge_model("meta-llama/llama-3-8b-instruct")
-    model_mixtral = judge_model("mistralai/mixtral-8x7b-instruct")
-    return model_llama, model_mistral, model_mixtral
+    bbq_df = read_json_file('distill_cot_Age_cleaned.jsonl')
+    return (bbq_df,)
 
 
 @app.cell
-def _(bbq_df, model_mistral):
+def _():
+    model_phi = judge_model("microsoft/phi-3-medium-128k-instruct", 0.0)
+    model_llama = judge_model("meta-llama/llama-3-8b-instruct", 0.0)
+    model_mixtral = judge_model("mistralai/mixtral-8x7b-instruct", 0.0)
+    return model_llama, model_mixtral, model_phi
+
+
+@app.cell
+def _(bbq_df, model_phi):
     # _judge_checkpoint_file = os.path.join("checkpoints", "judge_mistral_checkpoint.json")
-    jud_mistral = answer_multiple_choice_with_llm(
-        model_mistral, 
+    jud_phi = answer_multiple_choice_with_llm(
+        model_phi, 
         format_judge_prompt, 
         "Generating Judge", 
-        bbq_df,
+        bbq_df.iloc[:1000],
         max_concurrency=10
         # checkpoint_file=_judge_checkpoint_file
     )
     # bbq_df["judge_mistral"] = jud_mistral
-    return (jud_mistral,)
+    return (jud_phi,)
 
 
 @app.cell
@@ -256,9 +263,9 @@ def _(bbq_df, model_llama):
         model_llama, 
         format_judge_prompt, 
         "Generating Judge", 
-        bbq_df,
-        max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file
+        bbq_df.iloc[:1000],
+        max_concurrency=10
+        # checkpoint_file=_judge_checkpoint_file
     )
     # bbq_df["judge_llama"] = jud_llama
     return (jud_llama,)
@@ -271,35 +278,23 @@ def _(bbq_df, model_mixtral):
         model_mixtral, 
         format_judge_prompt, 
         "Generating Judge", 
-        bbq_df,
-        max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file
+        bbq_df.iloc[:1000],
+        max_concurrency=10
+        # checkpoint_file=_judge_checkpoint_file
     )
     # bbq_df["judge_mixtral"] = jud_mixtral
     return (jud_mixtral,)
 
 
 @app.cell
-def _(check_json_output, jud_mistral, model_mistral):
-    judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2)
-    return (judge_list_mistral,)
-
-
-@app.cell
-def _(judge_list_mistral):
-    add_attribute_to_jsonl('judge_llama.jsonl', 'judge_llama_mistral.jsonl', 'judge_mistral',judge_list_mistral)
+def _(check_json_output, jud_phi, model_phi):
+    judge_list_phi = check_json_output(jud_phi, model_phi, format_judge_prompt_v2)
     return
 
 
 @app.cell
 def _(check_json_output, jud_llama, model_llama):
     judge_list_llama = check_json_output(jud_llama, model_llama, format_judge_prompt_v2)
-    return (judge_list_llama,)
-
-
-@app.cell
-def _(judge_list_llama):
-    add_attribute_to_jsonl('distill_cot_Age_cleaned.jsonl', 'judge_llama.jsonl', 'judge_llama',judge_list_llama)
     return
 
 
