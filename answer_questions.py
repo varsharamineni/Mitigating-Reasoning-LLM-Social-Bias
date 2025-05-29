@@ -226,13 +226,14 @@ def _(answer_no_cot, answer_unbiased_cot, answer_with_cot):
 def _answer_multiple_choice_with_llm(get_all_answers, structured_llm):
     import glob
 
-    DATASETS_DIR = "datasets"
-    OUTPUT_DIR = "answers"
+    DATASETS_DIR = "post_judge_datasets/BBQ"
+    OUTPUT_DIR = "answers/BBQ"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     dataset_files = glob.glob(os.path.join(DATASETS_DIR, "*.jsonl"))
     results = {}
-    just_answer_this = "datasets/judge_llama_mistral_mixtral_agg.jsonl"
+    # just_answer_this = "datasets/BBQ/Age_judge_agg.jsonl"
+    just_answer_this = None
 
     if just_answer_this is None:
         for dataset_path in dataset_files:
