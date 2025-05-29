@@ -154,53 +154,52 @@ def repair_json_fragment(data: dict):
     return ordered_values
 
 
-@app.cell
-def _(bbq_df):
-    def check_json_output(
-        input_list,
-        llm,
-        prompt):
-        count = 0
-        jud_list = []
-        for j in input_list:
-            try:
-                j_data = repair_json_fragment(j)
+@app.function
+def check_json_output(
+    input_list,
+    llm,
+    prompt,
+    bbq_df):
+    count = 0
+    jud_list = []
+    for j in input_list:
+        try:
+            j_data = repair_json_fragment(j)
 
-                if len(j_data) != len(bbq_df['cleaned_cot'][count]):
-                    print(f"there is inconsistency in array length -- {count}")
-                    print(f"it should be {len(bbq_df['cleaned_cot'][count])} but it is {len(j_data)}")
-                    flag = True
-                    itr = 5
-                    while(flag and itr > 0):
-                        itr -= 1
-                        print(f"====================================try to get correct answer -time : {itr} ==============================")
-                        try:
-                            new_j = reprompt_judge(llm, prompt, bbq_df, count, j, len(j_data))
-                            j_data = repair_json_fragment(new_j)
-                            print(f"now it is {len(j_data)} while it should be {len(bbq_df['cleaned_cot'][count])}")
-                            if len(bbq_df['cleaned_cot'][count]) == len(j_data):
-                                flag = False
-                        except Exception as e:
-                            print(f"Exception : {e}")
-                    if(flag):
-                        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                        print("result still is bullshit") 
-                        j_data = [0] * len(bbq_df['cleaned_cot'][count])
-                        print(f"i set the result {j_data}")
+            if len(j_data) != len(bbq_df['cot'][count]):
+                print(f"there is inconsistency in array length -- {count}")
+                print(f"it should be {len(bbq_df['cot'][count])} but it is {len(j_data)}")
+                flag = True
+                itr = 5
+                while(flag and itr > 0):
+                    itr -= 1
+                    print(f"====================================try to get correct answer -time : {itr} ==============================")
+                    try:
+                        new_j = reprompt_judge(llm, prompt, bbq_df, count, j, len(j_data))
+                        j_data = repair_json_fragment(new_j)
+                        print(f"now it is {len(j_data)} while it should be {len(bbq_df['cot'][count])}")
+                        if len(bbq_df['cot'][count]) == len(j_data):
+                            flag = False
+                    except Exception as e:
+                        print(f"Exception : {e}")
+                if(flag):
+                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    print("result still is bullshit") 
+                    j_data = [0] * len(bbq_df['cot'][count])
+                    print(f"i set the result {j_data}")
 
-                jud_list.append([item if item in (0, 1) else 0 for item in j_data])
+            jud_list.append([item if item in (0, 1) else 0 for item in j_data])
 
-                count += 1
-            except Exception as e:
-                print(count)
-                print(e)
-        return jud_list
-    return (check_json_output,)
+            count += 1
+        except Exception as e:
+            print(count)
+            print(e)
+    return jud_list
 
 
 @app.function
 def add_attribute_to_jsonl(input_path: str, output_path: str,
-                           attr_name: str, attr_list):
+                           attr_names, attr_dataset):
     """
     Reads a JSONL file from input_path, adds attr_name=attr_value
     to each JSON object, and writes the results to output_path.
@@ -213,7 +212,8 @@ def add_attribute_to_jsonl(input_path: str, output_path: str,
             # Parse the JSON object
             obj = json.loads(line)
             # Add or overwrite the attribute
-            obj[attr_name] = attr_list[count]
+            for name in attr_names:
+                obj[name] = attr_dataset[name][count]
             # Write it back as a JSON line
             fout.write(json.dumps(obj, ensure_ascii=False) + '\n')
 
@@ -257,27 +257,23 @@ def list_to_json(values):
     return json.dumps(values_dict)
 
 
-@app.cell
-def _():
-    bbq_df = read_json_file('distill_cot_Age_cleaned.jsonl')
-    # bbq_df
-    return (bbq_df,)
+@app.function
+def judge(input_path, output_path):
 
+    base_name = os.path.basename(input_path)
+    base_name = base_name.removeprefix("distill_cot_").removesuffix(".jsonl")
 
-@app.cell
-def _(bbq_df):
+    bbq_df = read_json_file(input_path)
+
     reasoning = []
     result_judge_temp = []
-    for items in bbq_df['cleaned_cot']:
+    for items in bbq_df['cot']:
         reasoning.append(list_to_json(items))
         result_judge_temp.append(list_to_json([0] * len(items)))
     bbq_df['reasoning_step_json'] = reasoning
     bbq_df['judge_temp'] = result_judge_temp
-    return
 
-
-@app.cell
-def _():
+    #define 3 different models as judge
     model_mistral = judge_model("mistralai/mistral-7b-instruct", 0.0)
     model_llama = judge_model("meta-llama/llama-3-8b-instruct", 0.0)
     model_gemini = judge_model('google/gemini-2.0-flash-lite-001', 0.0)
@@ -285,41 +281,41 @@ def _():
     model_mistral = model_mistral.with_structured_output(method="json_mode")
     model_llama = model_llama.with_structured_output(method="json_mode")
     model_gemini = model_gemini.with_structured_output(method="json_mode")
-    return (model_gemini,)
 
+    #start to communicate with each of them
 
-@app.cell
-def _(bbq_df, model_gemini):
-    # print("===================================MISTRAL===================================")
+    print("===================================MISTRAL===================================")
+    _judge_checkpoint_file_mistral = os.path.join("checkpoints", f"{base_name}_judge_mistral_checkpoint.json")
+    jud_mistral = answer_multiple_choice_with_llm(
+        model_mistral, 
+        format_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file_mistral
+    )
 
-    # _judge_checkpoint_file_mistral = os.path.join("checkpoints", "judge_mistral_checkpoint.json")
+    print("check the output ............................................................")
+    judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2, bbq_df)
+    bbq_df['judge_mistral'] = judge_list_mistral
 
-    # jud_mistral = answer_multiple_choice_with_llm(
-    #     model_mistral, 
-    #     format_judge_prompt, 
-    #     "Generating Judge", 
-    #     bbq_df,
-    #     max_concurrency=10,
-    #     checkpoint_file=_judge_checkpoint_file_mistral
-    # )
+    print("====================================LLAMA====================================")
+    _judge_checkpoint_file_llama = os.path.join("checkpoints", f"{base_name}_judge_llama_checkpoint.json")
+    jud_llama = answer_multiple_choice_with_llm(
+        model_llama, 
+        format_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file_llama
+    )
 
-    # print("====================================LLAMA====================================")
-
-    # _judge_checkpoint_file_llama = os.path.join("checkpoints", "judge_llama_checkpoint.json")
-
-    # jud_llama = answer_multiple_choice_with_llm(
-    #     model_llama, 
-    #     format_judge_prompt, 
-    #     "Generating Judge", 
-    #     bbq_df,
-    #     max_concurrency=10,
-    #     checkpoint_file=_judge_checkpoint_file_llama
-    # )
+    print("check the output ............................................................")
+    judge_list_llama = check_json_output(jud_llama, model_llama, format_judge_prompt_v2, bbq_df)
+    bbq_df['judge_llama'] = judge_list_llama
 
     print("====================================GEMINI===================================")
-
-    _judge_checkpoint_file_gemini = os.path.join("checkpoints", "judge_gemini_checkpoint.json")
-
+    _judge_checkpoint_file_gemini = os.path.join("checkpoints", f"{base_name}_judge_gemini_checkpoint.json")
     jud_gemini = answer_multiple_choice_with_llm(
         model_gemini, 
         format_judge_prompt, 
@@ -328,48 +324,25 @@ def _(bbq_df, model_gemini):
         max_concurrency=10,
         checkpoint_file=_judge_checkpoint_file_gemini
     )
-    return (jud_gemini,)
+
+    print("check the output ............................................................")
+    judge_list_gemini = check_json_output(jud_gemini, model_gemini, format_judge_prompt_v2, bbq_df)
+    bbq_df['judge_gemini'] = judge_list_gemini
+
+    #aggregate judges inference 
+    bbq_df['judge_aggregate'] = agg_judge(bbq_df[['judge_llama', 'judge_mistral', 'judge_gemini']])
+
+    output_path = os.path.join(output_path, f"{base_name}_judge_agg.jsonl")
 
 
-@app.cell
-def _(check_json_output, jud_gemini, model_gemini):
-    # judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2)
-    # judge_list_llama = check_json_output(jud_llama, model_llama, format_judge_prompt_v2)
-
-    judge_list_gemini = check_json_output(jud_gemini, model_gemini, format_judge_prompt_v2)
-    return (judge_list_gemini,)
-
-
-@app.cell
-def _(judge_list_gemini):
-    len(judge_list_gemini[2521])
-    return
+    add_attribute_to_jsonl(input_path, output_path, ['judge_mistral', 'judge_llama', 'judge_gemini', 'judge_aggregate'], bbq_df[['judge_mistral', 'judge_llama', 'judge_gemini', 'judge_aggregate']])
 
 
 @app.cell
 def _():
-    # add_attribute_to_jsonl('judge_llama_mistral.jsonl', output_path, 'judge_gemini',judge_list_gemini)
-    return
-
-
-@app.cell
-def _():
-    judge_df = read_json_file('Age_judge_agg.jsonl')
-    judge_df
-    return (judge_df,)
-
-
-@app.cell
-def _(judge_df):
-    judge_df['judge_aggregate'] = agg_judge(judge_df[['judge_llama', 'judge_mistral', 'judge_claude']])
-    return
-
-
-@app.cell
-def _(judge_df):
-    output_path = os.path.join("post_judge_datasets", "BBQ", "Age_judge_agg.jsonl")
-    input_path = os.path.join("post_judge_datasets", "BBQ", "judge_llama_mistral_gemini.jsonl")
-    add_attribute_to_jsonl(input_path, output_path, 'judge_aggregate',judge_df['judge_aggregate'])
+    input_path = os.path.join("COT", "distill_cot_Disability_status.jsonl")
+    output_path = os.path.join("post_judge_datasets", "BBQ") 
+    judge(input_path, output_path)
     return
 
 
