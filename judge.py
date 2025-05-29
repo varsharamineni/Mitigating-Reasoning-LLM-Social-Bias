@@ -30,6 +30,8 @@ with app.setup:
 
     # Create checkpoints directory if it doesn't exist
     os.makedirs("checkpoints", exist_ok=True)
+    os.makedirs("post_judge_datasets", exist_ok=True)
+    os.makedirs(os.path.join("post_judge_datasets", "BBQ"), exist_ok=True)
 
 
 @app.function
@@ -89,7 +91,7 @@ def answer_multiple_choice_with_llm(
              chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
 
              config = RunnableConfig(max_concurrency=max_concurrency)
-             
+
              chunk_responses = llm.batch(chunk_prompts, config=config)
 
              # Extract reasoning from responses
@@ -276,19 +278,18 @@ def _(bbq_df):
 
 @app.cell
 def _():
-    # model_phi = judge_model("microsoft/phi-3-mini-128k-instruct", 0.0)
     model_mistral = judge_model("mistralai/mistral-7b-instruct", 0.0)
     model_llama = judge_model("meta-llama/llama-3-8b-instruct", 0.0)
-    model_claude = judge_model("anthropic/claude-3-haiku", 0.0)
+    model_gemini = judge_model('google/gemini-2.0-flash-lite-001', 0.0)
 
     model_mistral = model_mistral.with_structured_output(method="json_mode")
     model_llama = model_llama.with_structured_output(method="json_mode")
-    model_claude = model_claude.with_structured_output(method="json_mode")
-    return (model_claude,)
+    model_gemini = model_gemini.with_structured_output(method="json_mode")
+    return (model_gemini,)
 
 
 @app.cell
-def _(bbq_df, model_claude):
+def _(bbq_df, model_gemini):
     # print("===================================MISTRAL===================================")
 
     # _judge_checkpoint_file_mistral = os.path.join("checkpoints", "judge_mistral_checkpoint.json")
@@ -315,39 +316,39 @@ def _(bbq_df, model_claude):
     #     checkpoint_file=_judge_checkpoint_file_llama
     # )
 
-    print("===================================CLAUDE====================================")
+    print("====================================GEMINI===================================")
 
-    _judge_checkpoint_file_claude = os.path.join("checkpoints", "judge_claude_checkpoint.json")
+    _judge_checkpoint_file_gemini = os.path.join("checkpoints", "judge_gemini_checkpoint.json")
 
-    jud_claude = answer_multiple_choice_with_llm(
-        model_claude, 
+    jud_gemini = answer_multiple_choice_with_llm(
+        model_gemini, 
         format_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file_claude
+        checkpoint_file=_judge_checkpoint_file_gemini
     )
-    return (jud_claude,)
+    return (jud_gemini,)
 
 
 @app.cell
-def _(check_json_output, jud_claude, model_claude):
+def _(check_json_output, jud_gemini, model_gemini):
     # judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2)
     # judge_list_llama = check_json_output(jud_llama, model_llama, format_judge_prompt_v2)
 
-    judge_list_claude = check_json_output(jud_claude, model_claude, format_judge_prompt_v2)
-    return (judge_list_claude,)
+    judge_list_gemini = check_json_output(jud_gemini, model_gemini, format_judge_prompt_v2)
+    return (judge_list_gemini,)
 
 
 @app.cell
-def _(judge_list_claude):
-    judge_list_claude
+def _(judge_list_gemini):
+    len(judge_list_gemini[2521])
     return
 
 
 @app.cell
-def _(judge_list_claude):
-    add_attribute_to_jsonl('judge_llama_mistral.jsonl', 'judge_llama_mistral_claude.jsonl', 'judge_claude',judge_list_claude)
+def _():
+    # add_attribute_to_jsonl('judge_llama_mistral.jsonl', output_path, 'judge_gemini',judge_list_gemini)
     return
 
 
@@ -366,7 +367,9 @@ def _(judge_df):
 
 @app.cell
 def _(judge_df):
-    add_attribute_to_jsonl('judge_llama_mistral_claude.jsonl', 'Age_judge_agg.jsonl', 'judge_aggregate',judge_df['judge_aggregate'])
+    output_path = os.path.join("post_judge_datasets", "BBQ", "Age_judge_agg.jsonl")
+    input_path = os.path.join("post_judge_datasets", "BBQ", "judge_llama_mistral_gemini.jsonl")
+    add_attribute_to_jsonl(input_path, output_path, 'judge_aggregate',judge_df['judge_aggregate'])
     return
 
 

@@ -219,10 +219,10 @@ def format_judge_prompt(bias_question_data: Dict[str, Any], ) -> List[Any]:
 def format_judge_prompt_v2(bias_question_data: Dict[str, Any]) -> List[Any]:
 
     fromatted_prompt = _judge_prompt_template_v2.format_messages(
-        expected_steps=len(bias_question_data[0]["cleaned_cot"]),
-        previous_prompt=format_judge_prompt(bias_question_data[0]),
-        previous_output = bias_question_data[1],
-        actual_steps = bias_question_data[2]
+        expected_steps=len(bias_question_data["cleaned_cot"]),
+        previous_prompt=format_judge_prompt(bias_question_data),
+        previous_output = bias_question_data['reasoning_step_json'],
+        actual_steps = bias_question_data['judge_temp']
 
     )
 
