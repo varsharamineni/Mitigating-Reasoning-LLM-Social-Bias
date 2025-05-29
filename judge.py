@@ -255,24 +255,6 @@ def list_to_json(values):
     return json.dumps(values_dict)
 
 
-@app.function
-def create_schema(n: int) -> dict:
-    # 1. Build a JSON Schema dict for "step 1".."step n"
-    schema = {
-        "type": "object",
-        "properties": {
-            f"step {i}": {
-                "type": "integer",
-                "enum": [0, 1]
-            }
-            for i in range(1, n + 1)
-        },
-        "required": [f"step {i}" for i in range(1, n + 1)],
-        "additionalProperties": False
-    }
-    return schema
-
-
 @app.cell
 def _():
     bbq_df = read_json_file('distill_cot_Age_cleaned.jsonl')
@@ -297,28 +279,28 @@ def _():
     # model_phi = judge_model("microsoft/phi-3-mini-128k-instruct", 0.0)
     model_mistral = judge_model("mistralai/mistral-7b-instruct", 0.0)
     model_llama = judge_model("meta-llama/llama-3-8b-instruct", 0.0)
-    model_mixtral = judge_model("mistralai/mixtral-8x7b-instruct", 0.0)
+    model_claude = judge_model("anthropic/claude-3-haiku", 0.0)
 
     model_mistral = model_mistral.with_structured_output(method="json_mode")
     model_llama = model_llama.with_structured_output(method="json_mode")
-    model_mixtral = model_mixtral.with_structured_output(method="json_mode")
-    return (model_mistral,)
+    model_claude = model_claude.with_structured_output(method="json_mode")
+    return (model_claude,)
 
 
 @app.cell
-def _(bbq_df, model_mistral):
-    print("===================================MISTRAL===================================")
+def _(bbq_df, model_claude):
+    # print("===================================MISTRAL===================================")
 
-    _judge_checkpoint_file_mistral = os.path.join("checkpoints", "judge_mistral_checkpoint.json")
+    # _judge_checkpoint_file_mistral = os.path.join("checkpoints", "judge_mistral_checkpoint.json")
 
-    jud_mistral = answer_multiple_choice_with_llm(
-        model_mistral, 
-        format_judge_prompt, 
-        "Generating Judge", 
-        bbq_df,
-        max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file_mistral
-    )
+    # jud_mistral = answer_multiple_choice_with_llm(
+    #     model_mistral, 
+    #     format_judge_prompt, 
+    #     "Generating Judge", 
+    #     bbq_df,
+    #     max_concurrency=10,
+    #     checkpoint_file=_judge_checkpoint_file_mistral
+    # )
 
     # print("====================================LLAMA====================================")
 
@@ -333,49 +315,58 @@ def _(bbq_df, model_mistral):
     #     checkpoint_file=_judge_checkpoint_file_llama
     # )
 
-    # print("===================================MIXTRAL===================================")
-    # jud_mixtral = answer_multiple_choice_with_llm(
-    #     model_mixtral, 
-    #     format_judge_prompt, 
-    #     "Generating Judge", 
-    #     bbq_df,
-    #     max_concurrency=10
-    #     # checkpoint_file=_judge_checkpoint_file
-    # )
-    return (jud_mistral,)
+    print("===================================CLAUDE====================================")
+
+    _judge_checkpoint_file_claude = os.path.join("checkpoints", "judge_claude_checkpoint.json")
+
+    jud_claude = answer_multiple_choice_with_llm(
+        model_claude, 
+        format_judge_prompt, 
+        "Generating Judge", 
+        bbq_df,
+        max_concurrency=10,
+        checkpoint_file=_judge_checkpoint_file_claude
+    )
+    return (jud_claude,)
 
 
 @app.cell
-def _(check_json_output, jud_mistral, model_mistral):
-    judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2)
+def _(check_json_output, jud_claude, model_claude):
+    # judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2)
     # judge_list_llama = check_json_output(jud_llama, model_llama, format_judge_prompt_v2)
 
-    # judge_list_mixtral = check_json_output(jud_mixtral)
-    return (judge_list_mistral,)
+    judge_list_claude = check_json_output(jud_claude, model_claude, format_judge_prompt_v2)
+    return (judge_list_claude,)
 
 
 @app.cell
-def _(judge_list_mistral):
-    judge_list_mistral
+def _(judge_list_claude):
+    judge_list_claude
     return
 
 
 @app.cell
-def _(judge_list_mistral):
-    add_attribute_to_jsonl('judge_llama.jsonl', 'judge_llama_mistral.jsonl', 'judge_mistral',judge_list_mistral)
+def _(judge_list_claude):
+    add_attribute_to_jsonl('judge_llama_mistral.jsonl', 'judge_llama_mistral_claude.jsonl', 'judge_claude',judge_list_claude)
     return
 
 
 @app.cell
 def _():
-    judge_df = read_json_file('judge_llama_mistral.jsonl')
+    judge_df = read_json_file('Age_judge_agg.jsonl')
     judge_df
     return (judge_df,)
 
 
 @app.cell
 def _(judge_df):
-    judge_df['judge_aggregate'] = agg_judge(judge_df[['judge_llama', 'judge_mistral', 'judge_mixtral']])
+    judge_df['judge_aggregate'] = agg_judge(judge_df[['judge_llama', 'judge_mistral', 'judge_claude']])
+    return
+
+
+@app.cell
+def _(judge_df):
+    add_attribute_to_jsonl('judge_llama_mistral_claude.jsonl', 'Age_judge_agg.jsonl', 'judge_aggregate',judge_df['judge_aggregate'])
     return
 
 
