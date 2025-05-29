@@ -35,8 +35,6 @@ with app.setup:
 @app.function
 def read_json_file(file_name):
 # Read the JSONL file
-# with open('distill_cot_Age_cleaned.jsonl', 'r') as file:
-# with open('reasoning_steps.jsonl', 'r') as file:
     with open(file_name, 'r') as file:
         data = [json.loads(line) for line in file]
 
@@ -66,6 +64,7 @@ def answer_multiple_choice_with_llm(
         List of answer strings
     """
     # Try to load checkpoint if available
+    last_processed_idx = 0
     if checkpoint_file:
         checkpoint_data = load_checkpoint(checkpoint_file)
         if checkpoint_data is not None:
@@ -90,8 +89,9 @@ def answer_multiple_choice_with_llm(
              chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
 
              config = RunnableConfig(max_concurrency=max_concurrency)
+             
              chunk_responses = llm.batch(chunk_prompts, config=config)
-            
+
              # Extract reasoning from responses
              chunk_answers = [response for response in chunk_responses]
              results.extend(chunk_answers)
@@ -255,17 +255,29 @@ def list_to_json(values):
     return json.dumps(values_dict)
 
 
+@app.function
+def create_schema(n: int) -> dict:
+    # 1. Build a JSON Schema dict for "step 1".."step n"
+    schema = {
+        "type": "object",
+        "properties": {
+            f"step {i}": {
+                "type": "integer",
+                "enum": [0, 1]
+            }
+            for i in range(1, n + 1)
+        },
+        "required": [f"step {i}" for i in range(1, n + 1)],
+        "additionalProperties": False
+    }
+    return schema
+
+
 @app.cell
 def _():
     bbq_df = read_json_file('distill_cot_Age_cleaned.jsonl')
     # bbq_df
     return (bbq_df,)
-
-
-@app.cell
-def _(bbq_df):
-    bbq_df
-    return
 
 
 @app.cell
@@ -282,30 +294,32 @@ def _(bbq_df):
 
 @app.cell
 def _():
-    model_phi = judge_model("microsoft/phi-3-mini-128k-instruct", 0.0)
+    # model_phi = judge_model("microsoft/phi-3-mini-128k-instruct", 0.0)
+    model_mistral = judge_model("mistralai/mistral-7b-instruct", 0.0)
     model_llama = judge_model("meta-llama/llama-3-8b-instruct", 0.0)
     model_mixtral = judge_model("mistralai/mixtral-8x7b-instruct", 0.0)
 
-    model_phi = model_phi.with_structured_output(method="json_mode")
+    model_mistral = model_mistral.with_structured_output(method="json_mode")
     model_llama = model_llama.with_structured_output(method="json_mode")
     model_mixtral = model_mixtral.with_structured_output(method="json_mode")
-    return model_llama, model_phi
+    return (model_mistral,)
 
 
 @app.cell
-def _(bbq_df, model_phi):
-    print("=====================================PHI=====================================")
+def _(bbq_df, model_mistral):
+    print("===================================MISTRAL===================================")
 
-    _judge_checkpoint_file_phi = os.path.join("checkpoints", "judge_phi_checkpoint.json")
+    _judge_checkpoint_file_mistral = os.path.join("checkpoints", "judge_mistral_checkpoint.json")
 
-    jud_phi = answer_multiple_choice_with_llm(
-        model_phi, 
+    jud_mistral = answer_multiple_choice_with_llm(
+        model_mistral, 
         format_judge_prompt, 
         "Generating Judge", 
         bbq_df,
         max_concurrency=10,
-        checkpoint_file=_judge_checkpoint_file_phi
+        checkpoint_file=_judge_checkpoint_file_mistral
     )
+
     # print("====================================LLAMA====================================")
 
     # _judge_checkpoint_file_llama = os.path.join("checkpoints", "judge_llama_checkpoint.json")
@@ -328,27 +342,33 @@ def _(bbq_df, model_phi):
     #     max_concurrency=10
     #     # checkpoint_file=_judge_checkpoint_file
     # )
+    return (jud_mistral,)
+
+
+@app.cell
+def _(check_json_output, jud_mistral, model_mistral):
+    judge_list_mistral = check_json_output(jud_mistral, model_mistral, format_judge_prompt_v2)
+    # judge_list_llama = check_json_output(jud_llama, model_llama, format_judge_prompt_v2)
+
+    # judge_list_mixtral = check_json_output(jud_mixtral)
+    return (judge_list_mistral,)
+
+
+@app.cell
+def _(judge_list_mistral):
+    judge_list_mistral
     return
 
 
 @app.cell
-def _(check_json_output, jud_llama, model_llama):
-    # judge_list_phi = check_json_output(jud_phi)
-    judge_list_llama = check_json_output(jud_llama, model_llama, format_judge_prompt_v2)
-
-    # judge_list_mixtral = check_json_output(jud_mixtral)
-    return (judge_list_llama,)
-
-
-@app.cell
-def _(judge_list_llama):
-    add_attribute_to_jsonl('distill_cot_Age_cleaned.jsonl', 'judge_llama.jsonl', 'judge_llama',judge_list_llama)
+def _(judge_list_mistral):
+    add_attribute_to_jsonl('judge_llama.jsonl', 'judge_llama_mistral.jsonl', 'judge_mistral',judge_list_mistral)
     return
 
 
 @app.cell
 def _():
-    judge_df = read_json_file('judge_llama.jsonl')
+    judge_df = read_json_file('judge_llama_mistral.jsonl')
     judge_df
     return (judge_df,)
 
