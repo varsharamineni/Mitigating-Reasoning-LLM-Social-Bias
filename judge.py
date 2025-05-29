@@ -89,7 +89,7 @@ def answer_multiple_choice_with_llm(
              chunk_prompts = [prompt_formatter(bias_question_data) for _, bias_question_data in chunk.iterrows()]
 
              config = RunnableConfig(max_concurrency=max_concurrency)
-             
+
              chunk_responses = llm.batch(chunk_prompts, config=config)
 
              # Extract reasoning from responses
@@ -276,14 +276,15 @@ def _(bbq_df):
 
 @app.cell
 def _():
-    # model_phi = judge_model("microsoft/phi-3-mini-128k-instruct", 0.0)
     model_mistral = judge_model("mistralai/mistral-7b-instruct", 0.0)
     model_llama = judge_model("meta-llama/llama-3-8b-instruct", 0.0)
     model_claude = judge_model("anthropic/claude-3-haiku", 0.0)
+    model_gemini = judge_model("google/gemini-2.0-flash-lite-001", 0.0)
 
     model_mistral = model_mistral.with_structured_output(method="json_mode")
     model_llama = model_llama.with_structured_output(method="json_mode")
     model_claude = model_claude.with_structured_output(method="json_mode")
+    model_gemini = model_gemini.with_structured_output(method="json_mode")
     return (model_claude,)
 
 
