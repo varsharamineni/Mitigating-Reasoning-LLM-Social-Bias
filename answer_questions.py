@@ -153,7 +153,9 @@ def _():
         llm: BaseChatModel,
         max_concurrency: int = 50,
     ) -> list:
-        no_cot_checkpoint_file = create_checkpoint_file(f"{checkpoint_name}_no_cot_checkpoint.json")
+        no_cot_checkpoint_file = create_checkpoint_file(
+            f"{checkpoint_name}_no_cot_checkpoint.json"
+        )
         return answer_multiple_choice_with_llm(
             llm,
             format_prompt_no_cot,
@@ -169,7 +171,9 @@ def _():
         llm: BaseChatModel,
         max_concurrency: int = 50,
     ) -> list:
-        with_cot_checkpoint_file = create_checkpoint_file(f"{checkpoint_name}_with_cot_checkpoint.json")
+        with_cot_checkpoint_file = create_checkpoint_file(
+            f"{checkpoint_name}_with_cot_checkpoint.json"
+        )
         return answer_multiple_choice_with_llm(
             llm,
             format_prompt_with_cot,
@@ -185,7 +189,9 @@ def _():
         llm: BaseChatModel,
         max_concurrency: int = 50,
     ) -> list:
-        unbiased_cot_checkpoint_file = create_checkpoint_file(f"{checkpoint_name}_unbiased_cot_checkpoint.json")
+        unbiased_cot_checkpoint_file = create_checkpoint_file(
+            f"{checkpoint_name}_unbiased_cot_checkpoint.json"
+        )
         return answer_multiple_choice_with_llm(
             llm,
             format_prompt_with_unbiased_cot,
@@ -205,13 +211,20 @@ def _(answer_no_cot, answer_unbiased_cot, answer_with_cot):
         checkpoint_name = dataset_path.replace(os.path.sep, "_")
         df = pd.read_json(dataset_path, orient="records", lines=True)
 
-        df["no_cot_answer"] = answer_no_cot(
+        no_cot_answers_raw = answer_no_cot(checkpoint_name, df, llm, max_concurrency=50)
+        df["no_cot_answer"] = [
+            int(ans.removeprefix("ans")) for ans in no_cot_answers_raw
+        ]
+
+        cot_answers_raw = answer_with_cot(checkpoint_name, df, llm, max_concurrency=50)
+        df["cot_answer"] = [int(ans.removeprefix("ans")) for ans in cot_answers_raw]
+
+        unbiased_cot_answers_raw = answer_unbiased_cot(
             checkpoint_name, df, llm, max_concurrency=50
         )
-        df["cot_answer"] = answer_with_cot(checkpoint_name, df, llm, max_concurrency=50)
-        df["unbiased_cot_answer"] = answer_unbiased_cot(
-            checkpoint_name, df, llm, max_concurrency=50
-        )
+        df["unbiased_cot_answer"] = [
+            int(ans.removeprefix("ans")) for ans in unbiased_cot_answers_raw
+        ]
 
         output_path = os.path.join(
             output_dir, f"{dataset_name}-answers-nocot-cot-unbiasedcot.jsonl"
@@ -226,20 +239,20 @@ def _(answer_no_cot, answer_unbiased_cot, answer_with_cot):
 def _answer_multiple_choice_with_llm(get_all_answers, structured_llm):
     import glob
 
-    DATASETS_DIR = "datasets"
-    OUTPUT_DIR = "answers"
+    DATASETS_DIR = "post_judge_datasets/BBQ"
+    OUTPUT_DIR = "answers/BBQ"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     dataset_files = glob.glob(os.path.join(DATASETS_DIR, "*.jsonl"))
     results = {}
-    just_answer_this = "datasets/judge_llama_mistral_mixtral_agg.jsonl"
+    # just_answer_this = "datasets/BBQ/Age_judge_agg.jsonl"
+    just_answer_this = None
 
     if just_answer_this is None:
         for dataset_path in dataset_files:
             get_all_answers(OUTPUT_DIR, dataset_path, structured_llm)
     else:
         get_all_answers(OUTPUT_DIR, just_answer_this, structured_llm)
-
 
     return
 
