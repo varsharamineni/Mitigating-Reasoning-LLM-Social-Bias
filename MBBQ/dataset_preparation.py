@@ -56,12 +56,6 @@ def _(get_samples, mo):
 
 
 @app.cell
-def _(get_samples):
-    get_samples(["Gender_identity"], control=False, language="en")
-    return
-
-
-@app.cell
 def _(json, pd, tqdm):
     def get_samples(subsets, control=False, language="en", en_prompts=["test"]):
         """Create DataFrame of control or regular samples, using all 5 prompts.
@@ -220,6 +214,7 @@ def _(json, pd, tqdm):
                     df_samples,
                     pd.DataFrame(
                         {
+                            "language": [language] * len(contexts),
                             "example_id": example_id,
                             "question_index": q_id,
                             "question_polarity": question_polarities,
