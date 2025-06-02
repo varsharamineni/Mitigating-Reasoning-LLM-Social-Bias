@@ -519,6 +519,13 @@ def _(combined_df, mo, pd):
         index="processed_category", columns="model", values="acc_bias"
     )
 
+    # Define the desired column order
+    column_order = ["no_cot_answer", "cot_answer", "unbiased_cot_answer"]
+
+    # Reorder columns
+    pivot_ambig = pivot_ambig.reindex(columns=column_order)
+    pivot_disambig = pivot_disambig.reindex(columns=column_order)
+
     # Create heatmaps
     fig_ambig, ax_ambig = plt.subplots(figsize=(8, 6))
     sns.heatmap(
@@ -586,6 +593,13 @@ def accuracy_1(combined_df, mo, pd, plt, sns):
     pivot_disambig_acc = disambig_acc_df.pivot_table(
         index="processed_category", columns="model", values="general_accuracy"
     )
+
+    # Define the desired column order
+    _column_order = ["no_cot_answer", "cot_answer", "unbiased_cot_answer"]
+
+    # Reorder columns
+    pivot_ambig_acc = pivot_ambig_acc.reindex(columns=_column_order)
+    pivot_disambig_acc = pivot_disambig_acc.reindex(columns=_column_order)
 
     # Create heatmaps for accuracy
     fig_ambig_acc, ax_ambig_acc = plt.subplots(figsize=(8, 6))
