@@ -16,7 +16,16 @@ with app.setup:
         format_prompt_with_cot,
         format_prompt_with_unbiased_cot,
     )
-    from typing import Optional, Literal, List, Dict, Any, Callable, Union, LiteralString
+    from typing import (
+        Optional,
+        Literal,
+        List,
+        Dict,
+        Any,
+        Callable,
+        Union,
+        LiteralString,
+    )
     from langchain.chat_models.base import BaseChatModel
     from langchain_core.runnables import RunnableConfig
     from pydantic import BaseModel, Field
@@ -228,7 +237,7 @@ def _():
         return answer_multiple_choice_with_llm(
             llm,
             format_prompt_with_cot,
-            "Answering questions WITH chain-of-thought",
+            f"Answering questions WITH chain-of-thought for {language}",
             df,
             language=language,
             max_concurrency=max_concurrency,
@@ -248,7 +257,7 @@ def _():
         return answer_multiple_choice_with_llm(
             llm,
             format_prompt_with_unbiased_cot,
-            "Answering questions WITH unbiased chain-of-thought",
+            f"Answering questions WITH unbiased chain-of-thought for {language}",
             df,
             language=language,
             max_concurrency=max_concurrency,
