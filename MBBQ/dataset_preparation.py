@@ -48,6 +48,7 @@ def _(get_samples, mo):
                     f"datasets/our_datasets/{dataset}{'_control' if control else ''}_{language}.jsonl",
                     orient="records",
                     lines=True,
+                    force_ascii=False
                 )
     # This will process data/Age_control_en.jsonl and add target_loc and unknown_loc
 
@@ -69,7 +70,7 @@ def _(json, pd, tqdm):
         for subset in subsets:
             print(subset)
             with open(
-                f"datasets/orig_datasets/{subset}{'_control' if control else ''}_{language}.jsonl"
+                f"datasets/orig_datasets/{subset}{'_control' if control else ''}_{language}.jsonl", encoding='utf-8'
             ) as infile:
                 dataset = [json.loads(jline) for jline in infile]
             samples = []

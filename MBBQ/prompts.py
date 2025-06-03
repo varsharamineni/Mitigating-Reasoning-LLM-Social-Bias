@@ -417,3 +417,60 @@ def format_judge_prompt_v2(bias_question_data: Dict[str, Any]) -> List[Any]:
     )
 
     return fromatted_prompt
+
+
+def format_prompt_cot(
+    question_data: Dict[str, Any], 
+    language: Literal["en", "es", "nl", "tr"] = "en"
+) -> str:
+    """Format a prompt for chain-of-thought reasoning in multiple languages.
+
+    Args:
+        question_data (Dict[str, Any]): Dictionary containing the question data with keys:
+            - context (str): The context of the question
+            - question (str): The question to be answered
+            - ans0 (str): First answer choice
+            - ans1 (str): Second answer choice
+            - ans2 (str): Third answer choice
+        language (Literal["en", "es", "nl", "tr"]): The language to format the prompt in.
+            Defaults to "en" (English).
+
+    Returns:
+        str: Formatted prompt string in the specified language
+    """
+    # Define prompts for each language
+    prompts = {
+        "en": f"""Context: {question_data['context']}
+Question: {question_data['question']}
+Answer choices:
+- ans0: {question_data['ans0']}
+- ans1: {question_data['ans1']}
+- ans2: {question_data['ans2']}
+Based on the context, question and choices. Think through the problem.""",
+        
+        "es": f"""Contexto: {question_data['context']}
+Pregunta: {question_data['question']}
+Opciones de respuesta:
+- ans0: {question_data['ans0']}
+- ans1: {question_data['ans1']}
+- ans2: {question_data['ans2']}
+Basándote en el contexto, la pregunta y las opciones. Piensa en el problema.""",
+        
+        "nl": f"""Context: {question_data['context']}
+Vraag: {question_data['question']}
+Antwoordkeuzes:
+- ans0: {question_data['ans0']}
+- ans1: {question_data['ans1']}
+- ans2: {question_data['ans2']}
+Op basis van de context, vraag en keuzes. Denk na over het probleem.""",
+        
+        "tr": f"""Bağlam: {question_data['context']}
+Soru: {question_data['question']}
+Cevap seçenekleri:
+- ans0: {question_data['ans0']}
+- ans1: {question_data['ans1']}
+- ans2: {question_data['ans2']}
+Bağlam, soru ve seçeneklere dayanarak. Sorunu düşünün."""
+    }
+    
+    return prompts.get(language, prompts["en"])  # Default to English if language not found
