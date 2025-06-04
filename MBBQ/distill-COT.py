@@ -27,7 +27,7 @@ with app.setup:
     os.makedirs("checkpoints", exist_ok=True)
 
     # Dataset configuration
-    DATASET_NAME = "Gender_identity_control_tr"  # This will determine the language to use
+    DATASET_NAME = "Sexual_orientation_tr"  # This will determine the language to use
     LANGUAGE = "tr"
 
 
@@ -197,7 +197,16 @@ async def _(bbq_df, client):
 
     # Create a wrapper function that includes the language parameter
     def format_prompt_with_language(question_data: pd.Series) -> str:
-        return format_prompt_cot(question_data.to_dict(), language=LANGUAGE)
+        # Get the base prompt
+        prompt = format_prompt_cot(question_data.to_dict(), language=LANGUAGE)
+        # Add explicit language instruction at the beginning
+        language_instruction = {
+            "es": "IMPORTANTE: Debes responder EN ESPAÑOL. No uses inglés en ninguna parte de tu respuesta.",
+            "nl": "BELANGRIJK: Je moet in het NEDERLANDS antwoorden. Gebruik geen Engels in je antwoord.",
+            "tr": "ÖNEMLİ: TÜRKÇE yanıt vermelisiniz. Yanıtınızda İngilizce kullanmayın.",
+            "en": "IMPORTANT: You must respond in ENGLISH. Do not use any other language in your response."
+        }
+        return f"{language_instruction[LANGUAGE]}\n\n{prompt}"
 
     # Run the function directly since we're in an async cell
     results = await answer_multiple_choice_with_llm(
@@ -221,7 +230,7 @@ async def _(bbq_df, client):
             # Add the chain-of-thought as a list of sentences
             output_dict['cot'] = process_cot(results[idx])
             # Write as a single line of JSON
-            f.write(json.dumps(output_dict) + '\n')
+            f.write(json.dumps(output_dict, ensure_ascii=False) + '\n')
 
     print(f"\nSaved results to {output_file}")
     return
