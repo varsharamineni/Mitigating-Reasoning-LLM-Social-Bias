@@ -304,7 +304,7 @@ def _(answer_no_cot, answer_unbiased_cot, answer_with_cot):
         output_path = os.path.join(
             output_dir, f"{dataset_name}-answers-nocot-cot-unbiasedcot.jsonl"
         )
-        df.to_json(output_path, orient="records", lines=True)
+        df.to_json(output_path, orient="records", lines=True, force_ascii=False)
         rich.print(f"[green]Processed and saved:[/green] {output_path}")
 
     return (get_all_answers,)
