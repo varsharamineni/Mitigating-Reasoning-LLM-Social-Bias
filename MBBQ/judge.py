@@ -345,7 +345,7 @@ def judge(input_path, output_path):
 
 @app.cell
 def _():
-    input_path = os.path.join("COT", "distill_cot_Gender_identity_es.jsonl")
+    input_path = os.path.join("COT", "distill_cot_Gender_identity_nl.jsonl")
     # output_path = os.path.join("post_judge_datasets", "MBBQ") 
     judge(input_path, "post_judge_datasets")
     return
