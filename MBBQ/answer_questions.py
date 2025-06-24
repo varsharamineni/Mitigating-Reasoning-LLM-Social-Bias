@@ -320,14 +320,15 @@ def _answer_multiple_choice_with_llm(
 ):
     import glob
 
-    DATASETS_DIR = "datasets/our_datasets/"
-    OUTPUT_DIR = "answers/BBQ"
+    DATASETS_DIR = "post_judge_datasets/temp/"
+    OUTPUT_DIR = "answers/MBBQ/temp"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     dataset_files = glob.glob(os.path.join(DATASETS_DIR, "*.jsonl"))
     results = {}
-    # just_answer_this = "datasets/BBQ/Age_judge_agg.jsonl"
-    just_answer_this = "datasets/temp/Age_en.jsonl"
+    # just_answer_this = "datasets/with_cot_judge/deepseek_cot_Sexual_orientation_judge_agg_en_small.jsonl"
+    # just_answer_this = "datasets/temp/Age_en.jsonl"
+    just_answer_this = None  # Set to a specific file path if neededt
 
     llmDict = {
         "en": structured_llm_en,
