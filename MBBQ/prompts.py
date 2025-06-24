@@ -515,13 +515,13 @@ def format_prompt_with_unbiased_cot(
             - ans1 (str): Second answer choice
             - ans2 (str): Third answer choice
             - cot (List[str]): List of chain-of-thought reasoning steps
-            - judge_agg (List[int]): List of bias judgments (0 for unbiased, 1 for biased)
+            - judge_gemini (List[int]): List of bias judgments (0 for unbiased, 1 for biased)
 
     Returns:
         List[Any]: Formatted prompt messages ready for the language model, containing only unbiased CoT steps
     """
-    # Find indices where judge_agg value is 0 (unbiased)
-    unbiased_indexs = np.where(np.array(bias_question_data["judge_aggregate"]) == 0)[0]
+    # Find indices where judge value is 0 (unbiased)
+    unbiased_indexs = np.where(np.array(bias_question_data["judge_gemini"]) == 0)[0]
     unbiased_cot_str = "\n".join(
         [bias_question_data["cot"][i] for i in unbiased_indexs]
     )
