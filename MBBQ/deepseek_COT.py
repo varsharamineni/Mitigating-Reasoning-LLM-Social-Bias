@@ -25,8 +25,8 @@ with app.setup:
     os.makedirs("checkpoints", exist_ok=True)
 
     # Dataset configuration
-    DATASET_NAME = "Sexual_orientation_tr"
-    LANGUAGE = "tr"
+    DATASET_NAME = "Sexual_orientation_en"
+    LANGUAGE = "en"
 
 
 @app.cell
@@ -45,7 +45,7 @@ def _():
 @app.cell
 def _():
     # Read the JSONL file
-    with open(os.path.join('datasets', 'our_datasets', f'{DATASET_NAME}.jsonl'), 'r') as file:
+    with open(os.path.join('datasets', 'our_datasets', f'{DATASET_NAME}.jsonl'), 'r', encoding="utf-8") as file:
         data = [json.loads(line) for line in file]
         print(data)
 
@@ -141,7 +141,7 @@ def _(answer_multiple_choice_with_llm, bbq_df, model):
             "en": "IMPORTANT: You must respond in ENGLISH. Do not use any other language in your response."
         }
         return f"{language_instruction[LANGUAGE]}\n\n{prompt}"
-        
+
     _cot_checkpoint_file = os.path.join("checkpoints", f"deepseek_cot_{DATASET_NAME}_checkpoint.json")
     cot = answer_multiple_choice_with_llm(
         model, 
@@ -175,8 +175,10 @@ def _(bbq_df, cot):
     bbq_df['cot'] = [parse_reasoning_steps(text) for text in cot]
 
     # Save the DataFrame to JSONL file
-    _cot_file = os.path.join("COT", "DeepSeek", f"deepseek_cot_{DATASET_NAME}.json")
-    bbq_df.to_json(_cot_file, orient='records', lines=True, ensure_ascii=False)
+    _cot_file = os.path.join("COT", "DeepSeek", f"deepseek_cot_{DATASET_NAME}.jsonl")
+    with open(_cot_file, "w", encoding="utf-8") as f:
+        for record in bbq_df.to_dict(orient="records"):
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
     print(f"Saved cot steps to {_cot_file}")
     return
 
