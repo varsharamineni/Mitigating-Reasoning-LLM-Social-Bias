@@ -11,3 +11,6 @@ wheels/
 .env
 __marimo__/
 checkpoints/
+
+# macOS files
+**/.DS_Store
