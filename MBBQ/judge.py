@@ -277,12 +277,12 @@ def judge(input_path, output_path):
     bbq_df['judge_temp'] = result_judge_temp
 
     #define 3 different models as judge
-    model_mistral = judge_model("mistralai/mistral-7b-instruct", 0.0)
-    model_llama = judge_model("meta-llama/llama-3-8b-instruct", 0.0)
+    # model_mistral = judge_model("mistralai/mistral-7b-instruct", 0.0)
+    # model_llama = judge_model("meta-llama/llama-3-8b-instruct", 0.0)
     model_gemini = judge_model('google/gemini-2.0-flash-lite-001', 0.0)
 
-    model_mistral = model_mistral.with_structured_output(method="json_mode")
-    model_llama = model_llama.with_structured_output(method="json_mode")
+    # model_mistral = model_mistral.with_structured_output(method="json_mode")
+    # model_llama = model_llama.with_structured_output(method="json_mode")
     model_gemini = model_gemini.with_structured_output(method="json_mode")
 
     #start to communicate with each of them
@@ -341,11 +341,12 @@ def judge(input_path, output_path):
     output_path = os.path.join(output_path, f"{base_name}_judge_agg_{language}.jsonl")
 
     add_attribute_to_jsonl(input_path, output_path, ['judge_gemini'], bbq_df[['judge_gemini']])
+    # return bbq_df
 
 
 @app.cell
 def _():
-    input_path = os.path.join("COT", "distill_cot_Gender_identity_nl.jsonl")
+    input_path = os.path.join("COT", "deepseek_cot_Gender_identity_tr.jsonl")
     # output_path = os.path.join("post_judge_datasets", "MBBQ") 
     judge(input_path, "post_judge_datasets")
     return
