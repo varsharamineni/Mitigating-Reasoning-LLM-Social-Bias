@@ -233,6 +233,15 @@ def _(pd):
 def _(calculate_group_counts):
     def get_general_accuracy(df_with_process_category, model_name, category_name):
         """Calculates general accuracy before filtering out unknown predictions."""
+        # Note:
+        # Example:
+        # group0: Gender_identity          ambig             
+        # group1: Gender_identity          disambig
+        # group2: Gender_identity (name)   ambig
+        # group3: Gender_identity (name)   disambig
+
+        # In each group compare result of model_name (one of the ["no_cot_answer", "cot_answer", "unbiased_cot_answer"]) with label
+        # and calculate the mean to get accuracy of that group
 
         acc_series = df_with_process_category.groupby(
             ["processed_category", "context_condition"], observed=True, dropna=False
@@ -256,8 +265,14 @@ def _(calculate_group_counts):
             grouping_keys_for_counts, observed=False, dropna=False
         ).apply(calculate_group_counts)
 
-        # mo.output.append("HAAABIB")
-        # mo.output.append(bias_components_df)
+    # NOTE: After this groupby and apply we will get a dataframe in this format:
+    #                                          neg_Target  neg_Non_target  nonneg_Target  nonneg_Non_target
+    # processed_category      context_condition                                                          
+    # Gender_identity           ambig                5              10             15                 20
+    # Gender_identity           disambig             8              12             18                 22
+    # Gender_identity (names)   ambig                3               7             11                 16
+    # Gender_identity (names)   disambig             2               8             13                 10
+
 
         # Calculate initial_bias_score
         total_substantive = (
@@ -273,6 +288,14 @@ def _(calculate_group_counts):
             )
             * 2
         ) - 1
+
+    # Note:
+    # Later we want to merge it with accuracy and it's easier to have "processed_category", "context_condition" as columns (instead of index levels) so let's remove this multilevel index into columns and to the following template:
+    #    processed_category context_condition  neg_Target  neg_Non_target  nonneg_Target  nonneg_Non_target   initial_bias_score
+    #  0 Gender_identity           ambig        5              10             15                 20               score
+    #  1 Gender_identity           disambig     8              12             18                 22               score
+    #  2 Gender_identity (names)   ambig        3               7             11                 16               score
+    #  3 Gender_identity (names)   disambig     2               8             13                 10               score
 
         bias_components_df["initial_bias_score"] = bias_components_df[
             "initial_bias_score"
@@ -312,15 +335,10 @@ def _(
         new_df = add_processed_category(new_df)
         category = new_df["category"][0]
         try:
-            # print(f"Calculating general accuracy for model: {model}")
-            general_acc_df = get_general_accuracy(new_df, model, category)
-            # mo.output.append("General Accuracy DF:")
-            # mo.output.append(general_acc_df)
 
-            # print(f"Calculating initial bias and counts for model: {model}")
+            general_acc_df = get_general_accuracy(new_df, model, category)
+
             initial_bias_df = get_initial_bias_and_counts(new_df, model, category)
-            # mo.output.append("Initial Bias DF (with counts):")
-            # mo.output.append(initial_bias_df)
 
             if general_acc_df.empty or initial_bias_df.empty:
                 print(
@@ -377,64 +395,6 @@ def _(
             print(f"An unexpected error occurred for {model_to_test}: {e}")
 
     return (calculate_bias_scorer_and_accuracy,)
-
-
-@app.cell
-def _():
-    # DEBUG CELL
-    # _metadata_df = pd.read_csv("results/my_results/additional_metadata copy.csv")
-
-    # _just_this = "results/my_results/Gender_identity_judge_agg-answers-nocot-cot-unbiasedcot.jsonl"
-    # _df = pd.read_json(_just_this, lines=True)
-    # _df = add_metadata_to_df(_df, metadata_df)
-    # _df["unknown_label"] = _df["answer_info"].apply(get_unknown_label)
-    # _df = add_processed_category(_df)
-
-    # _df[_df["no_cot_answer"] == _df["target_loc"]]["context_condition"].value_counts()
-
-    # check_df = _df[
-    #     (_df["category"] == "Gender_identity")
-    #     & (_df["context_condition"] == "ambig")
-    #     & (
-    #         _df["label_type"] != "name"
-    #     )  # Excluding name type if you're looking at regular Gender_identity
-    # ]
-
-    # mo.output.append(check_df)
-
-    # print(f"Number of Gender_identity ambig rows: {len(check_df)}")
-
-    # # Check if any of these rows remain after filtering out unknown answers
-    # if len(check_df) > 0:
-    #     model_name = "no_cot_answer"  # Replace with actual model column
-    #     mo.output.append(check_df[check_df[model_name] != check_df["unknown_label"]])
-
-    return
-
-
-@app.cell
-def _():
-    # DEBUG cell
-    # _metadata_df = pd.read_csv("results/my_results/additional_metadata copy.csv")
-
-    # _dataset_files = glob.glob(os.path.join(DATASETS_DIR, "*.jsonl"))
-
-    # _just_this = "results/my_results/Gender_identity_judge_agg-answers-nocot-cot-unbiasedcot.jsonl"
-
-    # _models = ["no_cot_answer", "cot_answer", "unbiased_cot_answer"]
-    # mo.output.append(f"Processing dataset: {_just_this}")
-    # for _model in _models:
-    #     mo.output.append(f"Calculating bias for model: {_model}")
-    #     _df = pd.read_json(
-    #         _just_this,
-    #         lines=True,
-    #         orient="records",
-    #     )
-    #     _final_df = calculate_bias_scorer_and_accuracy(
-    #         df=_df, metadata_df=_metadata_df, model=_model
-    #     )
-    #     mo.output.append(_final_df)
-    return
 
 
 @app.cell
