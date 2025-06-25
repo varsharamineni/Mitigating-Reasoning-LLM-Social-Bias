@@ -320,8 +320,8 @@ def _answer_multiple_choice_with_llm(
 ):
     import glob
 
-    DATASETS_DIR = "post_judge_datasets/temp/"
-    OUTPUT_DIR = "answers/MBBQ/temp"
+    DATASETS_DIR = "post_judge_datasets/"
+    OUTPUT_DIR = "answers/MBBQ/"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     dataset_files = glob.glob(os.path.join(DATASETS_DIR, "*.jsonl"))
