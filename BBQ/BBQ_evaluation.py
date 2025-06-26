@@ -494,7 +494,7 @@ def _(combined_df, mo, pd):
         ax=ax_ambig,
         cbar_kws={"label": "Bias Score (acc_bias)"},
     )
-    ax_ambig.set_title("ambig")
+    ax_ambig.set_title("Ambiguous")
     ax_ambig.set_ylabel("Category")
     ax_ambig.set_xlabel("Model")
     plt.tight_layout()
@@ -511,7 +511,7 @@ def _(combined_df, mo, pd):
         ax=ax_disambig,
         cbar_kws={"label": "Bias Score (acc_bias)"},
     )
-    ax_disambig.set_title("disambig")
+    ax_disambig.set_title("Disambiguated")
     ax_disambig.set_ylabel("")  # No Y-axis label for the second plot for cleaner look
     ax_disambig.set_xlabel("Model")
     plt.tight_layout()
@@ -567,9 +567,9 @@ def accuracy_1(combined_df, mo, pd, plt, sns):
             vmin=0,
             vmax=100,
             ax=ax_ambig_acc,
-            cbar_kws={"label": "General Accuracy (%)"},
+            cbar_kws={"label": "Accuracy (%)"},
         )
-    ax_ambig_acc.set_title("Ambig Context Accuracy")
+    ax_ambig_acc.set_title("Ambiguous")
     ax_ambig_acc.set_ylabel("Category")
     ax_ambig_acc.set_xlabel("Model")
     plt.tight_layout()
@@ -584,9 +584,9 @@ def accuracy_1(combined_df, mo, pd, plt, sns):
             vmin=0,
             vmax=100,
             ax=ax_disambig_acc,
-            cbar_kws={"label": "General Accuracy (%)"},
+            cbar_kws={"label": "Accuracy (%)"},
         )
-    ax_disambig_acc.set_title("Disambig Context Accuracy")
+    ax_disambig_acc.set_title("Disambiguated")
     ax_disambig_acc.set_ylabel("")
     ax_disambig_acc.set_xlabel("Model")
     plt.tight_layout()
