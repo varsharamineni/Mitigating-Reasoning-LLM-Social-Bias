@@ -1,8 +1,29 @@
-# Ethics in AI Project
+# Mitigating LLM Social Bias by Assessing and Filtering Reasoning Steps with a Multi-Judge Pipeline
+
+## Authors
+
+- Fatemehzahra Ghafari Ghomi (<fatemezahra.ghafari@studio.unibo.it>)
+- Shafagh Rastegari (<shafagh.rastegari@studio.unibo.it>)
+- Habib Kazemi (<habib.kazemi2@studio.unibo.it>)
+
+## Project Structure
+
+The repository is organized into two main directories:
+
+- `BBQ/`: Contains the code and data for running experiments on the original English BBQ dataset.
+- `MBBQ/`: Contains the code and data for our multilingual extension of the BBQ benchmark, covering English, Spanish, Dutch, and Turkish.
+
+Each directory contains scripts for:
+
+- Preparing datasets (`dataset_preparation.py` in `MBBQ`)
+- Generating Chain-of-Thought (`COT.py`, `distill-COT.py`)
+- Evaluating the generated COT (`judge.py`)
+- Generating final answers using LLM(`answer_questions.py`)
 
 ## Setup and Installation
 
 ### Prerequisites
+
 - Python 3.12 or higher
 - uv (Python package manager)
 
@@ -16,62 +37,65 @@
 
    # Windows with PowerShell
    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
    ```
 
 2. **Set up the project**
 
    ```bash
-   # Clone the repository (if you haven't already)
+   # Clone the repository
    git clone <repository-url>
    cd path/to/project
    
-   # Create virtual environment and nstall dependencies using uv
+   # Create virtual environment and install dependencies using uv
    uv sync
 
    # Activate a virtual environment using uv
    source .venv/bin/activate
    ```
 
-## Using uv
+## Running the projects
 
-[uv](https://github.com/astral-sh/uv) is a fast Python package manager and resolver. Here are some common commands:
+The main project notebooks are interactive [Marimo](https://marimo.io/) notebooks. They provide a reactive and reproducible environment for running the experiments.
+
+To run notebooks of BBQ, First enter the BBQ directory:
 
 ```bash
-# Install all dependencies from pyproject.toml
-uv sync
-
-# Install a package
-uv add <package-name>
+cd BBQ
 ```
 
-## Using Marimo
+To run notebooks of MBBQ, First enter the MBBQ directory:
 
-[Marimo](https://marimo.io/) is an interactive Python notebook that's reactive, programmable, and reproducible.
+```bash
+cd MBBQ
+```
 
-### Starting a Marimo Notebook
+Then use the following command:
 
-1. **Create a new notebook**
-
-   ```bash
-   marimo new <notebook-name>.py
-   ```
-
-2. **Open an existing notebook**
-
-   ```bash
-   marimo edit <notebook-name>.py
-   ```
-
-3. **Run a notebook in presentation mode**
-
-   ```bash
-   marimo run <notebook-name>.py
-   ```
-
-## Project Structure
-
-[Add information about your project structure here]
+```bash
+marimo edit <notebook-name>.py
+```
 
 ## License
 
-[Add license information here]
+MIT License
+
+Copyright (c) 2024 Fatemehzahra Ghafari Ghomi, Shafagh Rastegari, Habib Kazemi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
