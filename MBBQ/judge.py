@@ -341,19 +341,13 @@ def judge(input_path, output_path):
     output_path = os.path.join(output_path, f"{base_name}_judge_agg_{language}.jsonl")
 
     add_attribute_to_jsonl(input_path, output_path, ['judge_gemini'], bbq_df[['judge_gemini']])
-    # return bbq_df
 
 
 @app.cell
 def _():
-    input_path = os.path.join("COT", "deepseek_cot_Physical_appearance_tr.jsonl")
+    input_path = os.path.join("COT", "deepseek_cot_Age_es.jsonl")
     # output_path = os.path.join("post_judge_datasets", "MBBQ") 
     judge(input_path, "post_judge_datasets")
-    return
-
-
-@app.cell
-def _():
     return
 
 
