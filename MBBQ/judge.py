@@ -240,7 +240,7 @@ def agg_judge(df):
 def judge_model(model_name, temp = 0.15):
 
     return ChatOpenAI(
-        openai_api_key=os.environ["judge_key"],
+        openai_api_key=os.environ["habib_key"],
         openai_api_base="https://openrouter.ai/api/v1",
         model_name = model_name,
         temperature=temp
@@ -345,7 +345,7 @@ def judge(input_path, output_path):
 
 @app.cell
 def _():
-    input_path = os.path.join("COT", "deepseek_cot_Age_es.jsonl")
+    input_path = os.path.join("COT", "deepseek_cot_SES_en.jsonl")
     # output_path = os.path.join("post_judge_datasets", "MBBQ") 
     judge(input_path, "post_judge_datasets")
     return
