@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.6"
+__generated_with = "0.13.15"
 app = marimo.App(width="full")
 
 
@@ -18,11 +18,11 @@ def _():
         label="Upload a dataset to visualize (.jsonl)",
     )
     mo.md(f"**Upload a dataset:** {file_uploader}")
-    return file_uploader, io, mo, os, pd
+    return file_uploader, io, mo, pd
 
 
 @app.cell
-def _(DATASETS_DIR, file_uploader, io, mo, os, pd):
+def _(file_uploader, io, mo, pd):
     # This cell will re-execute whenever file_uploader.value changes
     uploaded_files = file_uploader.value
 
@@ -48,7 +48,27 @@ def _(DATASETS_DIR, file_uploader, io, mo, os, pd):
         mo.output.replace(
             mo.md("Please upload a .jsonl dataset file using the element above.")
         )
+    return (df,)
+
+
+@app.cell
+def _(df):
+    df[df["cot_answer"] != df["unbiased_cot_answer"]].index
     return
+
+
+@app.cell
+def _(df):
+    df[df["target_loc"] == 100].index
+    return
+
+
+app._unparsable_cell(
+    r"""
+    df[(df[\"cot_answer\"] == df[\"unknown_label\"]) && (df[\"context_condition\"] == \"ambig\")]
+    """,
+    name="_"
+)
 
 
 if __name__ == "__main__":
