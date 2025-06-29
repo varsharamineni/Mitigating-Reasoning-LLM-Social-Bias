@@ -6,6 +6,18 @@
 - Shafagh Rastegari (<shafagh.rastegari@studio.unibo.it>)
 - Habib Kazemi (<habib.kazemi2@studio.unibo.it>)
 
+# Description
+
+This project introduces and evaluates a novel pipeline designed to mitigate social biases perpetuated by Reasoning Large Language Models (LLMs). Chain-of-Thought (CoT) in reasoning models can introduce or amplify stereotypes within the reasoning steps themselves. Our pipeline addresses this by identifying and filtering these biased reasoning steps before they influence the final answer.
+
+Our approach utilizes a multi-judge system, empolying LLMs to assess each step of a CoT sequence for social bias. Biased steps are then removed, creating a “debiased” CoT that is passed to a final model for answer generation.
+
+We conducted extensive experiments on two datasets:
+
+- **Bias Benchmark for Question Answering (BBQ)**
+
+- **Multilingual Bias Benchmark for Question Answering (MBBQ)**
+
 ## Project Structure
 
 The repository is organized into two main directories:
