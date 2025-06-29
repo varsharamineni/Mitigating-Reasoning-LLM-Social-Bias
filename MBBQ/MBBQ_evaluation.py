@@ -148,10 +148,18 @@ def _(mo, plt, results_df, sns):
     selected_language = "en"  # or "tr", etc.
     df_lang = results_df[results_df["language"] == selected_language]
 
+    # Define the desired column order
+    desired_order = ["no_cot_answer", "cot_answer", "unbiased_cot_answer"]
+
     # Pivot for ambiguous context
     pivot_ambig = df_lang.pivot(index="category", columns="Model", values="AccA")
+    # Reorder columns to match desired order
+    pivot_ambig = pivot_ambig.reindex(columns=desired_order)
+    
     # Pivot for disambiguated context
     pivot_disambig = df_lang.pivot(index="category", columns="Model", values="AccD")
+    # Reorder columns to match desired order
+    pivot_disambig = pivot_disambig.reindex(columns=desired_order)
 
     # Plot Ambig Context Accuracy
     fig_ambig, ax_ambig = plt.subplots(figsize=(8, 6))
@@ -191,8 +199,13 @@ def _(mo, plt, results_df, sns):
 
     # Pivot for ambiguous context bias
     pivot_ambig_bias = df_lang.pivot(index="category", columns="Model", values="BiasA")
+    # Reorder columns to match desired order
+    pivot_ambig_bias = pivot_ambig_bias.reindex(columns=desired_order)
+    
     # Pivot for disambiguated context bias
     pivot_disambig_bias = df_lang.pivot(index="category", columns="Model", values="BiasD")
+    # Reorder columns to match desired order
+    pivot_disambig_bias = pivot_disambig_bias.reindex(columns=desired_order)
 
     # Plot Ambig Context Bias
     fig_ambig_bias, ax_ambig_bias = plt.subplots(figsize=(8, 6))
