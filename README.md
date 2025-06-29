@@ -10,8 +10,8 @@
 
 The repository is organized into two main directories:
 
-- `BBQ/`: Contains the code and data for running experiments on the original English BBQ dataset.
-- `MBBQ/`: Contains the code and data for our multilingual extension of the BBQ benchmark, covering English, Spanish, Dutch, and Turkish.
+- `BBQ/`: Contains the code, dataset and results of running experiments on the English BBQ dataset.
+- `MBBQ/`: Contains the code, dataset and results of our multilingual extension of the BBQ benchmark, covering English, Spanish, Dutch, and Turkish.
 
 ## Setup and Installation
 
