@@ -13,13 +13,6 @@ The repository is organized into two main directories:
 - `BBQ/`: Contains the code and data for running experiments on the original English BBQ dataset.
 - `MBBQ/`: Contains the code and data for our multilingual extension of the BBQ benchmark, covering English, Spanish, Dutch, and Turkish.
 
-Each directory contains scripts for:
-
-- Preparing datasets (`dataset_preparation.py` in `MBBQ`)
-- Generating Chain-of-Thought (`COT.py`, `distill-COT.py`)
-- Evaluating the generated COT (`judge.py`)
-- Generating final answers using LLM(`answer_questions.py`)
-
 ## Setup and Installation
 
 ### Prerequisites
