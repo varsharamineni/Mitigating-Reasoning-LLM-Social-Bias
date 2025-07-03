@@ -1,4 +1,4 @@
-# Mitigating LLM Social Bias by Assessing and Filtering Reasoning Steps with a Multi-Judge Pipeline
+# Mitigating Reasoning LLM Social Bias by Assessing and Filtering Reasoning Steps with a Multi-Judge Pipeline
 
 ## Authors
 
