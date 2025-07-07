@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/vraminen/Mitigating-Reasoning-LLM-Social-Bias/BBQ/run_new_exp.py", line 94, in <module>
+    main()
+  File "/leonardo/home/userexternal/vraminen/Mitigating-Reasoning-LLM-Social-Bias/BBQ/run_new_exp.py", line 47, in main
+    bbq_df = load_bbq_dataset(BBQ_DATASET_DIR)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/vraminen/Mitigating-Reasoning-LLM-Social-Bias/BBQ/run_new_exp.py", line 24, in load_bbq_dataset
+    return pd.concat(dfs, ignore_index=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/vraminen/Mitigating-Reasoning-LLM-Social-Bias/.venv/lib/python3.12/site-packages/pandas/core/reshape/concat.py", line 382, in concat
+    op = _Concatenator(
+         ^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/vraminen/Mitigating-Reasoning-LLM-Social-Bias/.venv/lib/python3.12/site-packages/pandas/core/reshape/concat.py", line 445, in __init__
+    objs, keys = self._clean_keys_and_objs(objs, keys)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/vraminen/Mitigating-Reasoning-LLM-Social-Bias/.venv/lib/python3.12/site-packages/pandas/core/reshape/concat.py", line 507, in _clean_keys_and_objs
+    raise ValueError("No objects to concatenate")
+ValueError: No objects to concatenate
